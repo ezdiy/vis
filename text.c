@@ -1322,6 +1322,17 @@ void text_snapshot(Text *txt) {
 	txt->cache = NULL;
 }
 
+void text_history_forget(Text *txt) {
+	Revision *hist = txt->history;
+	while (hist && hist->prev)
+		hist = hist->prev;
+	txt->current_revision = hist;
+	txt->saved_revision = hist;
+	txt->last_revision = hist;
+	txt->history = hist;
+	hist->later = NULL;
+	hist->next = NULL;
+}
 
 void text_free(Text *txt) {
 	if (!txt)

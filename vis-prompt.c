@@ -192,6 +192,7 @@ void vis_message_show(Vis *vis, const char *msg) {
 	size_t pos = text_size(txt);
 	text_appendf(txt, "%s\n", msg);
 	text_save(txt, NULL);
+	text_history_forget(txt);
 	view_cursor_to(win->view, pos);
 }
 

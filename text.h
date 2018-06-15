@@ -411,4 +411,5 @@ ssize_t text_write_range(Text*, Filerange*, int fd);
 bool text_mmaped(Text*, const char *ptr);
 /** @} */
 
+void text_history_forget(Text*);
 #endif
