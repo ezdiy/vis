@@ -489,7 +489,7 @@ const Movement vis_motions[] = {
 	},
 	[VIS_MOVE_BLOCK_START] = {
 		.txt = text_block_start,
-		.type = JUMP,
+		.type = INCLUSIVE|JUMP,
 	},
 	[VIS_MOVE_BLOCK_END] = {
 		.txt = text_block_end,
@@ -497,7 +497,7 @@ const Movement vis_motions[] = {
 	},
 	[VIS_MOVE_PARENTHESIS_START] = {
 		.txt = text_parenthesis_start,
-		.type = JUMP,
+		.type = INCLUSIVE|JUMP,
 	},
 	[VIS_MOVE_PARENTHESIS_END] = {
 		.txt = text_parenthesis_end,

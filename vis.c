@@ -937,8 +937,11 @@ void vis_do(Vis *vis) {
 					view_cursors_to(sel, pos);
 				if (vis->mode->visual)
 					c.range = view_selections_get(sel);
-			} else if (a->movement->type & INCLUSIVE && c.range.end > start) {
-				c.range.end = text_char_next(txt, c.range.end);
+			} else if (a->movement->type & INCLUSIVE) {
+				if (pos < start)
+					c.range.start = text_char_next(txt, c.range.start);
+				else
+					c.range.end = text_char_next(txt, c.range.end);
 			} else if (linewise && (a->movement->type & LINEWISE_INCLUSIVE)) {
 				c.range.end = text_char_next(txt, c.range.end);
 			}
