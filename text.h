@@ -263,6 +263,7 @@ bool text_iterator_byte_prev(Iterator*, char *b);
 bool text_iterator_byte_next(Iterator*, char *b);
 bool text_iterator_byte_find_prev(Iterator*, char b);
 bool text_iterator_byte_find_next(Iterator*, char b);
+bool text_iterator_bytes_skip(Text *, Iterator *, int n);
 /**
  * @}
  * @defgroup iterator_code

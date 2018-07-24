@@ -1434,6 +1434,16 @@ static int vis_index(lua_State *L) {
 			return 1;
 		}
 
+		if (strcmp(key, "smartcase") == 0) {
+			lua_pushboolean(L, vis->smartcase);
+			return 1;
+		}
+
+		if (strcmp(key, "literal") == 0) {
+			lua_pushboolean(L, vis->literal);
+			return 1;
+		}
+
 		if (strcmp(key, "input_queue") == 0) {
 			lua_pushstring(L, buffer_content0(&vis->input_queue));
 			return 1;
@@ -1584,6 +1594,27 @@ static int registers_newindex(lua_State *L) {
 	}
 
 	vis_register_set(vis, reg, &data);
+	if (symbol[0] == vis_registers[VIS_REG_SEARCH].name) {
+		Text *txt = vis->search_file->text;
+		size_t size = text_size(txt);
+		size_t last_line = text_lineno_by_pos(txt, size);
+		char lastchar;
+		if (last_line > 1 && text_byte_get(txt, size-1, &lastchar) && lastchar == '\n')
+			last_line--;
+		size_t start = text_pos_by_lineno(txt, last_line);
+		size_t end = text_line_end(txt, start);
+		if (start != EPOS && end != EPOS) {
+			size_t size = end - start;
+			char *last_search = malloc(size);
+			if (last_search && size) {
+				size = text_bytes_get(txt, start, size, last_search);
+				if (0 == strncmp(last_search+1, ((TextString *)array_get(&data, 0))->data, size-1)) {
+					vis_regex(vis, last_search+1, vis->smartcase ? 1 : 0);
+				}
+			}
+			free(last_search);
+		}
+	}
 	array_release(&data);
 	return 0;
 }

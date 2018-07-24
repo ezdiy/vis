@@ -958,12 +958,13 @@ void vis_keys_feed(Vis*, const char *keys);
  * Get a regex object matching pattern.
  * @param regex The regex pattern to compile, if ``NULL`` the most recently used
  *        one is substituted.
+ * @param slashmotion Whether `smartcase` should be considered when compiling this pattern.
  * @return A Regex object or ``NULL`` in case of an error.
  * @rst
  * .. warning:: The caller must free the regex object using `text_regex_free`.
  * @endrst
  */
-Regex *vis_regex(Vis*, const char *pattern);
+Regex *vis_regex(Vis*, const char *pattern, bool slashmotion);
 
 /**
  * Take an undo snaphost to which we can later revert to.

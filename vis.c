@@ -1690,17 +1690,36 @@ void vis_insert_nl(Vis *vis) {
 	vis_window_invalidate(win);
 }
 
-Regex *vis_regex(Vis *vis, const char *pattern) {
-	if (!pattern && !(pattern = register_get(vis, &vis->registers[VIS_REG_SEARCH], NULL)))
+Regex *vis_regex(Vis *vis, const char *pattern, bool slashmotion) {
+	if (!pattern && !vis->last_search)
 		return NULL;
+	if (!pattern) {
+		return vis->last_search;
+	} else if (vis->last_search) {
+		text_regex_free(vis->last_search);
+		vis->last_search = NULL;
+	}
 	Regex *regex = text_regex_new();
 	if (!regex)
 		return NULL;
-	if (text_regex_compile(regex, pattern, REG_EXTENDED|REG_NEWLINE) != 0) {
-		text_regex_free(regex);
-		return NULL;
+	int reg_smartcase = 0;
+	if (slashmotion && vis->smartcase) {
+		Regex *has_upper = text_regex_new();
+		if (has_upper &&
+			text_regex_compile(has_upper, "[[:upper:]]", REG_NOSUB, false, false) == 0 &&
+			text_regex_match(has_upper, pattern, 0) != 0) {
+			reg_smartcase = REG_ICASE;
+		}
+		text_regex_free(has_upper);
+	}
+	if (text_regex_compile(regex, pattern, REG_EXTENDED|REG_NEWLINE|reg_smartcase, slashmotion, vis->literal) != 0) {
+		if (!slashmotion)
+			text_regex_free(regex);
+		if (!slashmotion || !vis->literal)
+			return NULL;
 	}
 	register_put0(vis, &vis->registers[VIS_REG_SEARCH], pattern);
+	vis->last_search = regex;
 	return regex;
 }
 

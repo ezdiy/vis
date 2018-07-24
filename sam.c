@@ -300,7 +300,35 @@ enum {
 	OPTION_LOAD_METHOD,
 	OPTION_CHANGE_256COLORS,
 	OPTION_LAYOUT,
+	OPTION_SMARTCASE,
+	OPTION_LITERAL,
 };
+
+bool scs_recompile_last_search(Vis* vis, Win* win, void *context, bool toggle,
+                           enum VisOption opt, const char *name, Arg *value)
+{
+	bool smartcase_old = vis->smartcase;
+	vis->smartcase = toggle ? !vis->smartcase : value->b;
+	if (vis->last_search && text_regex_is_slashmotion(vis->last_search) &&
+            (smartcase_old != vis->smartcase)) {
+		const char *reg_search = register_get(vis, &vis->registers[VIS_REG_SEARCH], NULL);
+		vis_regex(vis, reg_search, 1);
+	}
+	return true;
+}
+
+bool lit_recompile_last_search(Vis* vis, Win* win, void *context, bool toggle,
+                           enum VisOption opt, const char *name, Arg *value)
+{
+	bool literal_old = vis->literal;
+	vis->literal = toggle ? !vis->literal : value->b;
+	if (vis->last_search && text_regex_is_slashmotion(vis->last_search) &&
+            (literal_old != vis->literal)) {
+		const char *reg_search = register_get(vis, &vis->registers[VIS_REG_SEARCH], NULL);
+		vis_regex(vis, reg_search, 1);
+	}
+	return true;
+}
 
 static const OptionDef options[] = {
 	[OPTION_SHELL] = {
@@ -387,6 +415,18 @@ static const OptionDef options[] = {
 		{ "layout" },
 		VIS_OPTION_TYPE_STRING,
 		VIS_HELP("Vertical or horizontal window layout")
+	},
+	[OPTION_SMARTCASE] = {
+		{ "smartcase", "scs" },
+		VIS_OPTION_TYPE_BOOL,
+		.func = scs_recompile_last_search,
+		.help = VIS_HELP("Case-insensitive search, unless the pattern contains upper case characters")
+	},
+	[OPTION_LITERAL] = {
+		{ "literal" },
+		VIS_OPTION_TYPE_BOOL,
+		.func = lit_recompile_last_search,
+		.help = VIS_HELP("Literal string search")
 	},
 };
 
@@ -523,7 +563,6 @@ static Address *address_new(void) {
 static void address_free(Address *addr) {
 	if (!addr)
 		return;
-	text_regex_free(addr->regex);
 	address_free(addr->left);
 	address_free(addr->right);
 	free(addr);
@@ -670,7 +709,7 @@ static Regex *parse_regex(Vis *vis, const char **s) {
 	char *pattern = parse_delimited(s, CMD_REGEX);
 	if (!pattern && *s == before)
 		return NULL;
-	Regex *regex = vis_regex(vis, pattern);
+	Regex *regex = vis_regex(vis, pattern, 0);
 	free(pattern);
 	return regex;
 }
@@ -842,7 +881,6 @@ static void command_free(Command *cmd) {
 	for (const char **args = cmd->argv; *args; args++)
 		free((void*)*args);
 	address_free(cmd->address);
-	text_regex_free(cmd->regex);
 	free(cmd);
 }
 

@@ -183,11 +183,14 @@ struct Vis {
 	Mode *mode_before_prompt;            /* user mode which was active before entering prompt */
 	char search_char[8];                 /* last used character to search for via 'f', 'F', 't', 'T' */
 	int last_totill;                     /* last to/till movement used for ';' and ',' */
+	Regex *last_search;                  /* last regex used in '/' or '?' */
 	int search_direction;                /* used for `n` and `N` */
 	int tabwidth;                        /* how many spaces should be used to display a tab */
 	bool expandtab;                      /* whether typed tabs should be converted to spaces */
 	bool autoindent;                     /* whether indentation should be copied from previous line on newline */
 	bool change_colors;                  /* whether to adjust 256 color palette for true colors */
+	bool smartcase;                      /* case-insensitive search, unless the pattern contains upper case characters */
+	bool literal;                        /* literal string search */
 	char *shell;                         /* shell used to launch external commands */
 	Map *cmds;                           /* ":"-commands, used for unique prefix queries */
 	Map *usercmds;                       /* user registered ":"-commands */

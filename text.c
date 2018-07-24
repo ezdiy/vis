@@ -1450,6 +1450,15 @@ bool text_iterator_byte_next(Iterator *it, char *b) {
 	return true;
 }
 
+bool text_iterator_bytes_skip(Text *text, Iterator *it, int n) {
+	Iterator new = text_iterator_get(text, it->pos + n);
+	if (text_iterator_valid(&new)) {
+		*it = new;
+		return true;
+	}
+	return false;
+}
+
 bool text_iterator_byte_prev(Iterator *it, char *b) {
 	if (!it->piece || !it->piece->prev)
 		return false;
