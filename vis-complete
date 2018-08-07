@@ -35,6 +35,7 @@ while [ $# -gt 0 ]; do
 			fi
 		else
 			PATHNAME=$PREFIX
+			TRAIL="$2"
 		fi
 		break
 		;;
@@ -43,7 +44,7 @@ done
 
 if [ $COMPLETE_WORD = 1 ]; then
 	tr -cs '[:alnum:]_' '\n' |
-		grep "^$(basic_regex_quote "$PREFIX")." |
+		grep "^$(basic_regex_quote "$PREFIX")." | grep -v "^$(basic_regex_quote "${PATHNAME}${TRAIL}")$" |
 		sort -u
 else
 	if [ "${PATHNAME%/}" = "$PATHNAME" ]; then
@@ -65,5 +66,6 @@ else
 	sed "s|$(basic_regex_quote "$(printf '%s' "$DIR"/ | tr -s / /)")||"
 fi |
 	vis-menu -b |
-	sed "s|$(basic_regex_quote "$(basename "$PATHNAME")")||" |
+	sed "s|^$(basic_regex_quote "$(basename "$PATHNAME")")||" |
+	sed "s|$(basic_regex_quote "$TRAIL")\$||" |
 	tr -d '\n'

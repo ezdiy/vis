@@ -7,11 +7,18 @@ vis:map(vis.modes.INSERT, "<C-n>", function()
 	if not pos then return end
 	local range = file:text_object_word(pos > 0 and pos-1 or pos);
 	if not range then return end
-	if range.finish > pos then range.finish = pos end
 	if range.start == range.finish then return end
-	local prefix = file:content(range)
-	if not prefix then return end
-	local cmd = string.format("vis-complete --word '%s'", prefix:gsub("'", "'\\''"))
+	local current = file:content(range)
+	if not current then return end
+	local prefix, suffix
+	if range.finish > pos then
+		prefix = current:sub(1, pos - range.start)
+		suffix = current:sub(pos - range.start + 1)
+	else
+		prefix = current
+		suffix = ""
+	end
+	local cmd = string.format("vis-complete --word '%s' '%s'", prefix:gsub("'", "'\\''"), suffix:gsub("'", "'\\''"))
 	local status, out, err = vis:pipe(file, { start = 0, finish = file.size }, cmd)
 	if status ~= 0 or not out then
 		if err then vis:info(err) end
