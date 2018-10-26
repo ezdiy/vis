@@ -23,6 +23,7 @@ local character
              + P'newline' + P'null' + P'return' + P'space' + P'tab')
   + P'#\\x' * l.xdigit^1
   + P'#\\' * P(1)
+  + P'?\\' * P(1)
 local literal = "'" * word
 local dq_str = l.delimited_range('"')
 local string = token(l.STRING, character + literal + dq_str)
