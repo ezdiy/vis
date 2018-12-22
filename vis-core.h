@@ -102,6 +102,7 @@ typedef struct {
 		TEXTOBJECT_NON_CONTIGUOUS  = 1 << 2, /* multiple applications yield a split range */
 		TEXTOBJECT_EXTEND_FORWARD  = 1 << 3, /* multiple applications extend towards the end of file (default) */
 		TEXTOBJECT_EXTEND_BACKWARD = 1 << 4, /* multiple applications extend towards the begin of file */
+		TEXTOBJECT_LINEWISE        = 1 << 5,
 	} type;
 	void *data;
 } TextObject;

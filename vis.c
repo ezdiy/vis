@@ -850,7 +850,7 @@ void vis_do(Vis *vis) {
 	bool multiple_cursors = view_selections_count(view) > 1;
 
 	bool linewise = !(a->type & CHARWISE) && (
-		a->type & LINEWISE || (a->movement && a->movement->type & LINEWISE) ||
+		a->type & LINEWISE || (a->textobj && a->textobj->type & TEXTOBJECT_LINEWISE) || (a->movement && a->movement->type & LINEWISE) ||
 		vis->mode == &vis_modes[VIS_MODE_VISUAL_LINE]);
 
 	Register *reg = a->reg;
