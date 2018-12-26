@@ -54,8 +54,8 @@ lexers.STYLE_WHITESPACE = 'fore:'..colors.base01
 lexers.STYLE_EMBEDDED = 'fore:'..colors.blue
 lexers.STYLE_IDENTIFIER = fg
 
-lexers.STYLE_LINENUMBER = 'fore:'..colors.base00..',back:'..colors.base02
-lexers.STYLE_LINENUMBER_CURSOR = 'back:'..colors.base00..',fore:'..colors.base02
+lexers.STYLE_LINENUMBER = 'fore:'..colors.base01
+lexers.STYLE_LINENUMBER_CURSOR = 'fore:'..colors.base00
 lexers.STYLE_CURSOR = 'fore:'..colors.base03..',back:'..colors.base0
 lexers.STYLE_CURSOR_PRIMARY = lexers.STYLE_CURSOR..',back:'..colors.yellow
 lexers.STYLE_CURSOR_LINE = 'back:'..colors.base02
