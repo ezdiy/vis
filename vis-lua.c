@@ -1453,6 +1453,18 @@ static int vis_index(lua_State *L) {
 			return 1;
 		}
 
+		if (strcmp(key, "register") == 0) {
+			int register_used = vis_register_used(vis);
+			if (register_used == VIS_REG_INVALID)
+				lua_pushnil(L);
+			else {
+				char *name = vis_register_name(vis, register_used);
+				lua_pushstring(L, name);
+				free(name);
+			}
+			return 1;
+		}
+
 		if (strcmp(key, "registers") == 0) {
 			obj_ref_new(L, vis->ui, VIS_LUA_TYPE_REGISTERS);
 			return 1;
