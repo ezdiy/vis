@@ -748,7 +748,7 @@ static void print_symbolic_keys(Vis *vis, Text *txt) {
 }
 
 static bool cmd_help(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
-	if (!vis_window_new(vis, NULL))
+	if (vis->win->file->name && !vis_window_new(vis, NULL))
 		return false;
 
 	Text *txt = vis->win->file->text;
