@@ -1378,6 +1378,18 @@ static int redraw(lua_State *L) {
  * @see windows
  */
 /***
+ * Current tabwidth.
+ * @tfield int tabwidth
+ */
+/***
+ * Whether `expandtab` is on.
+ * @tfield bool expandtab
+ */
+/***
+ * Whether `autoindent` is on.
+ * @tfield bool autoindent
+ */
+/***
  * Currently active mode.
  * @tfield modes mode
  */
@@ -1399,6 +1411,21 @@ static int vis_index(lua_State *L) {
 				obj_ref_new(L, vis->win, VIS_LUA_TYPE_WINDOW);
 			else
 				lua_pushnil(L);
+			return 1;
+		}
+
+		if (strcmp(key, "tabwidth") == 0) {
+			lua_pushunsigned(L, vis->tabwidth);
+			return 1;
+		}
+
+		if (strcmp(key, "expandtab") == 0) {
+			lua_pushboolean(L, vis->expandtab);
+			return 1;
+		}
+
+		if (strcmp(key, "autoindent") == 0) {
+			lua_pushboolean(L, vis->autoindent);
 			return 1;
 		}
 
