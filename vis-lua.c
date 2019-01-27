@@ -2731,7 +2731,7 @@ void vis_lua_init(Vis *vis) {
 	 */
 	char path[PATH_MAX];
 
-	vis_lua_path_add(vis, VIS_PATH);
+	vis_lua_path_add(vis, STR(VIS_PATH));
 
 	/* try to get users home directory */
 	const char *home = getenv("HOME");
@@ -2861,7 +2861,7 @@ void vis_lua_init(Vis *vis) {
 	lua_getglobal(L, "vis");
 	lua_getmetatable(L, -1);
 
-	lua_pushstring(L, VERSION);
+	lua_pushstring(L, STR(VERSION));
 	lua_setfield(L, -2, "VERSION");
 
 	lua_newtable(L);

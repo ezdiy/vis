@@ -25,7 +25,7 @@ CONFIG_ACL ?= 0
 CONFIG_SELINUX ?= 0
 
 CFLAGS_STD ?= -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -DNDEBUG
-CFLAGS_STD += -DVERSION=\"${VERSION}\"
+CFLAGS_STD += -DVERSION="${VERSION}"
 LDFLAGS_STD ?= -lc
 
 CFLAGS_LIBC ?= -DHAVE_MEMRCHR=0
@@ -34,7 +34,7 @@ CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_TERMKEY) $(CFLAGS_CURSES) $(CFLAGS_ACL) \
 	$(CFLAGS_SELINUX) $(CFLAGS_TRE) $(CFLAGS_LUA) $(CFLAGS_LPEG) $(CFLAGS_STD) \
 	$(CFLAGS_LIBC)
 
-CFLAGS_VIS += -DVIS_PATH=\"${SHAREPREFIX}/vis\"
+CFLAGS_VIS += -DVIS_PATH="${SHAREPREFIX}/vis"
 CFLAGS_VIS += -DCONFIG_HELP=${CONFIG_HELP}
 CFLAGS_VIS += -DCONFIG_CURSES=${CONFIG_CURSES}
 CFLAGS_VIS += -DCONFIG_LUA=${CONFIG_LUA}
@@ -154,25 +154,25 @@ luacheck:
 
 install: $(ELF)
 	@echo installing executable files to ${DESTDIR}${PREFIX}/bin
-	@mkdir -p ${DESTDIR}${PREFIX}/bin
+	@mkdir -p "${DESTDIR}${PREFIX}/bin"
 	@for e in ${EXECUTABLES}; do \
-		cp -f "$$e" ${DESTDIR}${PREFIX}/bin && \
-		chmod 755 ${DESTDIR}${PREFIX}/bin/"$$e"; \
+		cp -f "$$e" "${DESTDIR}${PREFIX}/bin" && \
+		chmod 755 "${DESTDIR}${PREFIX}/bin/$$e"; \
 	done
-	@test ${CONFIG_LUA} -eq 0 || { \
+	@test "${CONFIG_LUA}" -eq 0 || { \
 		echo installing support files to ${DESTDIR}${SHAREPREFIX}/vis; \
-		mkdir -p ${DESTDIR}${SHAREPREFIX}/vis; \
-		cp -r lua/* ${DESTDIR}${SHAREPREFIX}/vis; \
+		mkdir -p "${DESTDIR}${SHAREPREFIX}/vis"; \
+		cp -r lua/* "${DESTDIR}${SHAREPREFIX}/vis"; \
 		rm -rf "${DESTDIR}${SHAREPREFIX}/vis/doc"; \
 	}
 	@echo installing documentation to ${DESTDIR}${DOCPREFIX}/vis
-	@mkdir -p ${DESTDIR}${DOCPREFIX}/vis
+	@mkdir -p "${DESTDIR}${DOCPREFIX}/vis"
 	@for d in ${DOCUMENTATION}; do \
-		cp "$$d" ${DESTDIR}${DOCPREFIX}/vis && \
+		cp "$$d" "${DESTDIR}${DOCPREFIX}/vis" && \
 		chmod 644 "${DESTDIR}${DOCPREFIX}/vis/$$d"; \
 	done
 	@echo installing manual pages to ${DESTDIR}${MANPREFIX}/man1
-	@mkdir -p ${DESTDIR}${MANPREFIX}/man1
+	@mkdir -p "${DESTDIR}${MANPREFIX}/man1"
 	@for m in ${MANUALS}; do \
 		sed -e "s/VERSION/${VERSION}/" < "man/$$m" >  "${DESTDIR}${MANPREFIX}/man1/$$m" && \
 		chmod 644 "${DESTDIR}${MANPREFIX}/man1/$$m"; \
@@ -187,17 +187,17 @@ install-strip: install
 uninstall:
 	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
 	@for e in ${EXECUTABLES}; do \
-		rm -f ${DESTDIR}${PREFIX}/bin/"$$e"; \
+		rm -f "${DESTDIR}${PREFIX}/bin/$$e"; \
 	done
 	@echo removing documentation from ${DESTDIR}${DOCPREFIX}/vis
 	@for d in ${DOCUMENTATION}; do \
-		rm -f ${DESTDIR}${DOCPREFIX}/vis/"$$d"; \
+		rm -f "${DESTDIR}${DOCPREFIX}/vis/$$d"; \
 	done
 	@echo removing manual pages from ${DESTDIR}${MANPREFIX}/man1
 	@for m in ${MANUALS}; do \
-		rm -f ${DESTDIR}${MANPREFIX}/man1/"$$m"; \
+		rm -f "${DESTDIR}${MANPREFIX}/man1/$$m"; \
 	done
 	@echo removing support files from ${DESTDIR}${SHAREPREFIX}/vis
-	@rm -rf ${DESTDIR}${SHAREPREFIX}/vis
+	@rm -rf "${DESTDIR}${SHAREPREFIX}/vis"
 
 .PHONY: all clean testclean dist distclean install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck man docker-kill docker docker-clean

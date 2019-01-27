@@ -46,6 +46,8 @@
 #define CONTROL(ch)   (ch ^ 0x40)
 #define MIN(a,b)      ((a) < (b) ? (a) : (b))
 #define MAX(a,b)      ((a) > (b) ? (a) : (b))
+#define XSTR(x) #x
+#define STR(x) XSTR(x)
 
 typedef enum {
 	C_Normal,
@@ -576,7 +578,7 @@ int
 main(int argc, char **argv) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-v")) {
-			puts("vis-menu " VERSION);
+			puts("vis-menu " STR(VERSION));
 			exit(0);
 		} else if (!strcmp(argv[i], "-i")) {
 			fstrncmp = strncasecmp;

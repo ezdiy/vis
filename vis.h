@@ -40,6 +40,9 @@ typedef struct Win Win;
 /* maximum bytes needed for string representation of a (pseudo) key */
 #define VIS_KEY_LENGTH_MAX 64
 
+#define XSTR(x) #x
+#define STR(x) XSTR(x)
+
 /**
  * Editor event handlers.
  */
