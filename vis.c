@@ -485,8 +485,10 @@ Win *window_new_file(Vis *vis, File *file, enum UiOption options) {
 		vis->windows->prev = win;
 	win->next = vis->windows;
 	vis->windows = win;
-	vis->win = win;
-	vis->ui->window_focus(win->ui);
+	if (file != vis->error_file) {
+		vis->win = win;
+		vis->ui->window_focus(win->ui);
+	}
 	for (size_t i = 0; i < LENGTH(win->modes); i++)
 		win->modes[i].parent = &vis_modes[i];
 	vis_event_emit(vis, VIS_EVENT_WIN_OPEN, win);

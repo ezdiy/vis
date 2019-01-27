@@ -191,7 +191,6 @@ void vis_message_show(Vis *vis, const char *msg) {
 	text_appendf(txt, "%s\n", msg);
 	text_save(txt, NULL);
 	view_cursor_to(win->view, pos);
-	vis_window_focus(win);
 }
 
 void vis_message_hide(Vis *vis) {
