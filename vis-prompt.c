@@ -122,13 +122,6 @@ static const char *prompt_esc(Vis *vis, const char *keys, const Arg *arg) {
 	return keys;
 }
 
-static const char *prompt_up(Vis *vis, const char *keys, const Arg *arg) {
-	vis_motion(vis, VIS_MOVE_LINE_UP);
-	vis_window_mode_unmap(vis->win, VIS_MODE_INSERT, "<Up>");
-	view_options_set(vis->win->view, UI_OPTION_SYMBOL_EOF);
-	return keys;
-}
-
 static const KeyBinding prompt_enter_binding = {
 	.key = "<Enter>",
 	.action = &(KeyAction){
@@ -143,13 +136,6 @@ static const KeyBinding prompt_esc_binding = {
 	},
 };
 
-static const KeyBinding prompt_up_binding = {
-	.key = "<Up>",
-	.action = &(KeyAction){
-		.func = prompt_up,
-	},
-};
-
 static const KeyBinding prompt_tab_binding = {
 	.key = "<Tab>",
 	.alias = "<C-x><C-o>",
@@ -158,7 +144,7 @@ static const KeyBinding prompt_tab_binding = {
 void vis_prompt_show(Vis *vis, const char *title) {
 	Win *active = vis->win;
 	Win *prompt = window_new_file(vis, title[0] == ':' ? vis->command_file : vis->search_file,
-		UI_OPTION_ONELINE);
+		UI_OPTION_ONELINE | UI_OPTION_SYMBOL_EOF);
 	if (!prompt)
 		return;
 	Text *txt = prompt->file->text;
@@ -172,7 +158,6 @@ void vis_prompt_show(Vis *vis, const char *title) {
 	vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<C-j>", &prompt_enter_binding);
 	vis_window_mode_map(prompt, VIS_MODE_VISUAL, true, "<Enter>", &prompt_enter_binding);
 	vis_window_mode_map(prompt, VIS_MODE_NORMAL, true, "<Escape>", &prompt_esc_binding);
-	vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Up>", &prompt_up_binding);
 	if (CONFIG_LUA)
 		vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Tab>", &prompt_tab_binding);
 	vis_mode_switch(vis, VIS_MODE_INSERT);
