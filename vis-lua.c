@@ -239,28 +239,30 @@ static int panic_handler(lua_State *L) {
 }
 
 static int error_handler(lua_State *L) {
-	Vis *vis = lua_touserdata(L, lua_upvalueindex(1));
-	if (vis->errorhandler)
-		return 1;
-	vis->errorhandler = true;
-	size_t len;
 	const char *msg = lua_tostring(L, 1);
-	if (msg)
-		luaL_traceback(L, L, msg, 1);
-	msg = lua_tolstring(L, 1, &len);
-	vis_message_show(vis, msg);
-	vis->errorhandler = false;
+	luaL_traceback(L, L, msg ? msg : NULL, 1);
 	return 1;
 }
 
 static int pcall(Vis *vis, lua_State *L, int nargs, int nresults) {
 	/* insert a custom error function below all arguments */
 	int msgh = lua_gettop(L) - nargs;
-	lua_pushlightuserdata(L, vis);
-	lua_pushcclosure(L, error_handler, 1);
+	lua_pushcclosure(L, error_handler, 0);
 	lua_insert(L, msgh);
 	int ret = lua_pcall(L, nargs, nresults, msgh);
 	lua_remove(L, msgh);
+	if (ret) {
+		const char *msg = lua_tostring(L, -1);
+		if (msg) {
+			if (strstr(msg, "C stack overflow")) {
+				vis->ui->terminal_save(vis->ui);
+				fprintf(stderr, "%s", msg);
+				vis->ui->terminal_restore(vis->ui);
+			} else {
+				vis_message_show(vis, msg);
+			}
+		}
+	}
 	return ret;
 }
 
