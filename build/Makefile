@@ -1,5 +1,6 @@
--include config.mk
+-include ../config.mk
 
+VPATH = ..
 REGEX_SRC ?= text-regex.c
 
 SRC = array.c buffer.c libutf.c main.c map.c \
@@ -52,8 +53,8 @@ DOCKER?=docker
 
 all: $(ELF)
 
-config.h:
-	cp config.def.h config.h
+../config.h: config.def.h
+	@echo CP $@; cp $< $@
 
 config.mk:
 	@touch $@
@@ -169,10 +170,10 @@ install: ${EXECUTABLES:%=${DESTDIR}${PREFIX}/bin/%} ${MANUALS:%=${DESTDIR}${MANP
 
 ifneq (${CONFIG_LUA}, 0)
 
-LUA_FILES := $(wildcard lua/*.lua lua/*/*.lua)
-install: ${LUA_FILES:lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}
+LUA_FILES := $(wildcard ../lua/*.lua ../lua/*/*.lua)
+install: ${LUA_FILES:../lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}
 
-${LUA_FILES:lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}: ${DESTDIR}${SHAREPREFIX}/vis/%: lua/% | ${DESTDIR}${SHAREPREFIX}/vis
+${LUA_FILES:../lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}: ${DESTDIR}${SHAREPREFIX}/vis/%: ../lua/% | ${DESTDIR}${SHAREPREFIX}/vis
 	install -D -m 0644 "$<" "$@"
 
 endif
@@ -197,7 +198,7 @@ install-strip: install
 
 uninstall:
 	@echo uninstalling
-	@rm -f ${EXECUTABLES:%=${DESTDIR}${PREFIX}/bin/%} ${MANUALS:%=${DESTDIR}${MANPREFIX}/man1/%} ${DOCUMENTATION:%=${DESTDIR}${DOCPREFIX}/vis/%} ${LUA_FILES:lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}
+	@rm -f ${EXECUTABLES:%=${DESTDIR}${PREFIX}/bin/%} ${MANUALS:%=${DESTDIR}${MANPREFIX}/man1/%} ${DOCUMENTATION:%=${DESTDIR}${DOCPREFIX}/vis/%} ${LUA_FILES:../lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}
 
 .PHONY: all clean testclean dist distclean install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck html docker-kill docker docker-clean
 
