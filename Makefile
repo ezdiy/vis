@@ -58,14 +58,28 @@ config.h:
 config.mk:
 	@touch $@
 
-vis: config.h config.mk *.c *.h
-	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} ${SRC} ${LDFLAGS} ${LDFLAGS_VIS} -o $@
+${SRC:%.c=%.o}: config.mk
 
-vis-menu: vis-menu.c
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+VISCC := ${CC}
+CPPFLAGS = -MD
 
-vis-digraph: vis-digraph.c
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+%.o: CC = @echo CC $@; ${VISCC}
+main.o: config.h
+${SRC:%.c=%.o}: CFLAGS += ${CFLAGS_VIS} ${CFLAGS_EXTRA}
+
+vis: CC = @echo LD $@; ${VISCC}
+vis: LDFLAGS += ${LDFLAGS_VIS}
+vis: ${SRC:%.c=%.o}
+
+vis-menu.o: CFLAGS += ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA}
+vis-menu: CC = @echo LD $@; ${VISCC}
+vis-menu: LDFLAGS += ${LDFLAGS_STD} ${LDFLAGS_AUTO}
+vis-menu: vis-menu.o
+
+vis-digraph.o: CFLAGS += ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA}
+vis-digraph: CC = @echo LD $@; ${VISCC}
+vis-digraph: LDFLAGS += ${LDFLAGS_STD} ${LDFLAGS_AUTO}
+vis-digraph: vis-digraph.o
 
 vis-single-payload.inc: $(EXECUTABLES) lua/*
 	for e in $(ELF); do \
@@ -127,7 +141,7 @@ testclean:
 
 clean:
 	@echo cleaning
-	@rm -f $(ELF) vis-single vis-single-payload.inc vis-*.tar.gz *.gcov *.gcda *.gcno
+	@rm -f $(ELF) ${ELF:%=%.o} ${ELF:%=%.d} ${SRC:%.c=%.o} ${SRC:%.c=%.d} vis-single vis-single-payload.inc vis-*.tar.gz *.gcov *.gcda *.gcno
 
 distclean: clean testclean
 	@echo cleaning build configuration
@@ -201,3 +215,5 @@ uninstall:
 	@rm -rf "${DESTDIR}${SHAREPREFIX}/vis"
 
 .PHONY: all clean testclean dist distclean install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck man docker-kill docker docker-clean
+
+-include ${SRC:%.c=%.d}

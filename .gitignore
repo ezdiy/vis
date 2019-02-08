@@ -12,5 +12,6 @@
 *.gcov
 *.html
 *.o
+*.d
 *.swo
 *.swp
