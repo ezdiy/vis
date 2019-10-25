@@ -460,6 +460,8 @@ run(void) {
 			break;
 		case CONTROL('C'):
 			return 1;
+		case ' ':
+			if (sel) strcat(sel->text, " "); /* This could probably lead to a buffer overflow */
 		case CONTROL('M'): /* Return */
 		case CONTROL('J'):
 			if (sel) strncpy(text, sel->text, sizeof(text)-1); /* Complete the input first, when hitting return */
