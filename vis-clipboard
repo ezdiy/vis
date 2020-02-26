@@ -67,7 +67,13 @@ vc_paste() {
 }
 
 vc_xsel_copy() {
-	xsel -bi
+	# primary for S-Ins, clipboard for C-v
+	dir=$(mktemp -d)
+	pipe=$dir/pipe
+	mkfifo $pipe
+	cat $pipe | xsel -bi &
+	tee $pipe | xsel -pi
+	rm -f $pipe
 }
 
 vc_xsel_paste() {
@@ -75,7 +81,13 @@ vc_xsel_paste() {
 }
 
 vc_xclip_copy() {
-	xclip -selection clipboard -i >/dev/null 2>&1
+	# primary for S-Ins, clipboard for C-v
+	dir=$(mktemp -d)
+	pipe=$dir/pipe
+	mkfifo $pipe
+	cat $pipe | xclip -selection primary -i >/dev/null 2>&1 &
+	tee $pipe | xclip -selection clipboard -i >/dev/null 2>&1
+	rm -f $pipe
 }
 
 vc_xclip_paste() {
