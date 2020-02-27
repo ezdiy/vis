@@ -72,19 +72,19 @@ static const char *selections_match_skip(Vis*, const char *keys, const Arg *arg)
 static const char *selections_rotate(Vis*, const char *keys, const Arg *arg);
 /* remove leading and trailing white spaces from selections */
 static const char *selections_trim(Vis*, const char *keys, const Arg *arg);
-/* save active selections to register */
+/* save active selections to mark */
 static const char *selections_save(Vis*, const char *keys, const Arg *arg);
-/* restore selections from register */
+/* restore selections from mark */
 static const char *selections_restore(Vis*, const char *keys, const Arg *arg);
-/* union selections */
+/* union selections from mark */
 static const char *selections_union(Vis*, const char *keys, const Arg *arg);
-/* intersect selections */
+/* intersect selections from mark */
 static const char *selections_intersect(Vis*, const char *keys, const Arg *arg);
 /* perform complement of current active selections */
 static const char *selections_complement(Vis*, const char *keys, const Arg *arg);
-/* subtract selections from register */
+/* subtract selections from mark */
 static const char *selections_minus(Vis*, const char *keys, const Arg *arg);
-/* pairwise combine selections */
+/* pairwise combine selections from mark */
 static const char *selections_combine(Vis*, const char *keys, const Arg *arg);
 static Filerange combine_union(const Filerange*, const Filerange*);
 static Filerange combine_intersect(const Filerange*, const Filerange*);
@@ -942,12 +942,12 @@ static const KeyAction vis_action[] = {
 	},
 	[VIS_ACTION_SELECTIONS_ALIGN_INDENT_LEFT] = {
 		"vis-selections-align-indent-left",
-		VIS_HELP("Left align all selections/selections by inserting spaces")
+		VIS_HELP("Left-align all selections by inserting spaces")
 		selections_align_indent, { .i = -1 }
 	},
 	[VIS_ACTION_SELECTIONS_ALIGN_INDENT_RIGHT] = {
 		"vis-selections-align-indent-right",
-		VIS_HELP("Right align all selections/selections by inserting spaces")
+		VIS_HELP("Right-align all selections by inserting spaces")
 		selections_align_indent, { .i = +1 }
 	},
 	[VIS_ACTION_SELECTIONS_REMOVE_ALL] = {
@@ -957,7 +957,7 @@ static const KeyAction vis_action[] = {
 	},
 	[VIS_ACTION_SELECTIONS_REMOVE_LAST] = {
 		"vis-selections-remove-last",
-		VIS_HELP("Remove least recently created selection")
+		VIS_HELP("Remove primary selection")
 		selections_remove,
 	},
 	[VIS_ACTION_SELECTIONS_REMOVE_COLUMN] = {
@@ -997,22 +997,22 @@ static const KeyAction vis_action[] = {
 	},
 	[VIS_ACTION_SELECTIONS_SAVE] = {
 		"vis-selections-save",
-		VIS_HELP("Save currently active selections to register")
+		VIS_HELP("Save currently active selections to mark")
 		selections_save
 	},
 	[VIS_ACTION_SELECTIONS_RESTORE] = {
 		"vis-selections-restore",
-		VIS_HELP("Restore selections from register")
+		VIS_HELP("Restore selections from mark")
 		selections_restore
 	},
 	[VIS_ACTION_SELECTIONS_UNION] = {
 		"vis-selections-union",
-		VIS_HELP("Add selections from register")
+		VIS_HELP("Add selections from mark")
 		selections_union
 	},
 	[VIS_ACTION_SELECTIONS_INTERSECT] = {
 		"vis-selections-intersect",
-		VIS_HELP("Intersect selections with register")
+		VIS_HELP("Intersect with selections from mark")
 		selections_intersect
 	},
 	[VIS_ACTION_SELECTIONS_COMPLEMENT] = {
@@ -1022,17 +1022,17 @@ static const KeyAction vis_action[] = {
 	},
 	[VIS_ACTION_SELECTIONS_MINUS] = {
 		"vis-selections-minus",
-		VIS_HELP("Subtract selections from register")
+		VIS_HELP("Subtract selections from mark")
 		selections_minus
 	},
 	[VIS_ACTION_SELECTIONS_COMBINE_UNION] = {
 		"vis-selections-combine-union",
-		VIS_HELP("Pairwise union with selection from register")
+		VIS_HELP("Pairwise union with selections from mark")
 		selections_combine, { .combine = combine_union }
 	},
 	[VIS_ACTION_SELECTIONS_COMBINE_INTERSECT] = {
 		"vis-selections-combine-intersect",
-		VIS_HELP("Pairwise intersect with selections from register")
+		VIS_HELP("Pairwise intersect with selections from mark")
 		selections_combine, { .combine = combine_intersect }
 	},
 	[VIS_ACTION_SELECTIONS_COMBINE_LONGER] = {
@@ -1385,6 +1385,49 @@ static const char *selections_match_word(Vis *vis, const char *keys, const Arg *
 	return keys;
 }
 
+static const Selection *selection_new_primary(View *view, Filerange *r) {
+	Text *txt = view_text(view);
+	size_t pos = text_char_prev(txt, r->end);
+	Selection *s = view_selections_new(view, pos);
+	if (!s)
+		return NULL;
+	view_selections_set(s, r);
+	view_selections_anchor(s, true);
+	view_selections_primary_set(s);
+	return s;
+}
+
+static const char *selections_match_next_literal(Vis *vis, const char *keys, const Arg *arg) {
+	Text *txt = vis_text(vis);
+	View *view = vis_view(vis);
+	Selection *s = view_selections_primary_get(view);
+	Filerange sel = view_selections_get(s);
+	size_t len = text_range_size(&sel);
+	if (!len)
+		return keys;
+
+	char *buf = text_bytes_alloc0(txt, sel.start, len);
+	if (!buf)
+		return keys;
+
+	size_t start = text_find_next(txt, sel.end, buf);
+	Filerange match = text_range_new(start, start+len);
+	if (start != sel.end && selection_new_primary(view, &match))
+		goto out;
+
+	sel = view_selections_get(view_selections(view));
+	start = text_find_prev(txt, sel.start, buf);
+	if (start == sel.start)
+		goto out;
+
+	match = text_range_new(start, start+len);
+	selection_new_primary(view, &match);
+
+out:
+	free(buf);
+	return keys;
+}
+
 static const char *selections_match_next(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = vis_text(vis);
 	View *view = vis_view(vis);
@@ -1393,30 +1436,23 @@ static const char *selections_match_next(Vis *vis, const char *keys, const Arg *
 	if (!text_range_valid(&sel))
 		return keys;
 
+	Filerange word = text_object_word(txt, view_cursors_pos(s));
+	if (!text_range_equal(&sel, &word))
+		return selections_match_next_literal(vis, keys, arg);
+
 	char *buf = text_bytes_alloc0(txt, sel.start, text_range_size(&sel));
 	if (!buf)
 		return keys;
-	Filerange word = text_object_word_find_next(txt, sel.end, buf);
-	if (text_range_valid(&word)) {
-		size_t pos = text_char_prev(txt, word.end);
-		if ((s = view_selections_new(view, pos))) {
-			view_selections_set(s, &word);
-			view_selections_anchor(s, true);
-			view_selections_primary_set(s);
-			goto out;
-		}
-	}
+
+	word = text_object_word_find_next(txt, sel.end, buf);
+	if (text_range_valid(&word) && selection_new_primary(view, &word))
+		goto out;
 
 	sel = view_selections_get(view_selections(view));
 	word = text_object_word_find_prev(txt, sel.start, buf);
 	if (!text_range_valid(&word))
 		goto out;
-	size_t pos = text_char_prev(txt, word.end);
-	if ((s = view_selections_new(view, pos))) {
-		view_selections_set(s, &word);
-		view_selections_anchor(s, true);
-		view_selections_primary_set(s);
-	}
+	selection_new_primary(view, &word);
 
 out:
 	free(buf);
@@ -2096,6 +2132,8 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 			return NULL;
 		if ((rune = vis_keys_codepoint(vis, keys)) != (Rune)-1) {
 			len = runetochar(buf, &rune);
+			if (buf[0] == '\n')
+				buf[0] = '\r';
 			data = buf;
 		} else {
 			vis_info_show(vis, "Unknown key");

@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define CONTROL(ch)   (ch ^ 0x40)
 #define MIN(a,b)      ((a) < (b) ? (a) : (b))
@@ -59,9 +60,9 @@ struct Item {
 
 static char   text[BUFSIZ] = "";
 static int    barpos = 0;
-static int    mw, mh;
-static int    lines = 0;
-static int    inputw, promptw;
+static size_t mw, mh;
+static size_t lines = 0;
+static size_t inputw, promptw;
 static size_t cursor;
 static char  *prompt = NULL;
 static Item  *items = NULL;
@@ -96,7 +97,7 @@ textw(const char *s) {
 
 static void
 calcoffsets(void) {
-        int i, n;
+        size_t i, n;
 
 	if (lines > 0)
 		n = lines;
@@ -122,13 +123,13 @@ static void
 die(const char *s) {
 	tcsetattr(0, TCSANOW, &tio_old);
 	fprintf(stderr, "%s\n", s);
-	exit(EXIT_FAILURE);
+	exit(2);
 }
 
 static void
 drawtext(const char *t, size_t w, Color col) {
 	const char *prestr, *poststr;
-	int i, tw;
+	size_t i, tw;
 	char *buf;
 
 	if (w<5) return; /* This is the minimum size needed to write a label: 1 char + 4 padding spaces */
@@ -156,14 +157,14 @@ drawtext(const char *t, size_t w, Color col) {
 
 static void
 resetline(void) {
-	if (barpos != 0) fprintf(stderr, "\033[%iH", barpos > 0 ? 0 : (mh-lines));
-	else fprintf(stderr, "\033[%iF", lines);
+	if (barpos != 0) fprintf(stderr, "\033[%ldH", (long)(barpos > 0 ? 0 : (mh-lines)));
+	else fprintf(stderr, "\033[%zuF", lines);
 }
 
 static void
 drawmenu(void) {
 	Item *item;
-	int rw;
+	size_t rw;
 
 	/* use default colors */
 	fprintf(stderr, "\033[0m");
@@ -195,12 +196,12 @@ drawmenu(void) {
 			if ((rw -= textw(item->text)) <= 0) break;
 		}
 		if (next) {
-			fprintf(stderr, "\033[%iG", mw-5);
+			fprintf(stderr, "\033[%zuG", mw-5);
 			drawtext(">", 5 /*textw(">")*/, C_Normal);
 		}
 
 	}
-	fprintf(stderr, "\033[%iG", (int)(promptw+textwn(text, cursor)-1));
+	fprintf(stderr, "\033[%ldG", (long)(promptw+textwn(text, cursor)-1));
 	fflush(stderr);
 }
 
@@ -458,7 +459,7 @@ run(void) {
 			}
 			break;
 		case CONTROL('C'):
-			return EXIT_FAILURE;
+			return 1;
 		case CONTROL('M'): /* Return */
 		case CONTROL('J'):
 			if (sel) strncpy(text, sel->text, sizeof(text)-1); /* Complete the input first, when hitting return */
@@ -469,7 +470,7 @@ run(void) {
 		case CONTROL(']'):
 		case CONTROL('\\'): /* These are usually close enough to RET to replace Shift+RET, again due to console limitations */
 			puts(text);
-			return EXIT_SUCCESS;
+			return 0;
 		case CONTROL('A'):
 			if (sel == matches) {
 				cursor = 0;
@@ -566,7 +567,7 @@ run(void) {
 static void
 usage(void) {
 	fputs("usage: vis-menu [-b|-t] [-i] [-l lines] [-p prompt] [initial selection]\n", stderr);
-	exit(EXIT_FAILURE);
+	exit(2);
 }
 
 int
@@ -574,7 +575,7 @@ main(int argc, char **argv) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-v")) {
 			puts("vis-menu " VERSION);
-			exit(EXIT_SUCCESS);
+			exit(0);
 		} else if (!strcmp(argv[i], "-i")) {
 			fstrncmp = strncasecmp;
 		} else if (!strcmp(argv[i], "-t")) {
@@ -591,7 +592,10 @@ main(int argc, char **argv) {
 			if (prompt && !prompt[0])
 				prompt = NULL;
 		} else if (!strcmp(argv[i], "-l")) {
-			lines = atoi(argv[++i]);
+			errno = 0;
+			lines = strtoul(argv[++i], NULL, 10);
+			if (errno)
+				usage();
 		} else {
 			usage();
 		}

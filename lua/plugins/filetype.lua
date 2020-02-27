@@ -125,6 +125,9 @@ vis.ftdetect.filetypes = {
 	faust = {
 		ext = { "%.dsp$" },
 	},
+	fennel = {
+		ext = { "%.fnl$" },
+	},
 	fish = {
 		ext = { "%.fish$" },
 	},
@@ -148,6 +151,13 @@ vis.ftdetect.filetypes = {
 	},
 	gherkin = {
 		ext = { "%.feature$" },
+	},
+	['git-commit'] = {
+		ext = { "^COMMIT_EDITMSG$" },
+		cmd = { "set colorcolumn 72" },
+	},
+	['git-rebase'] = {
+		ext = { "git%-rebase%-todo" },
 	},
 	glsl = {
 		ext = { "%.glslf$", "%.glslv$" },
@@ -291,7 +301,7 @@ vis.ftdetect.filetypes = {
 		ext = { "%.ps1$" },
 	},
 	prolog = {
-		ext = { "%.prolog$" },
+		ext = { "%.pl$", "%.pro$", "%.prolog$" },
 	},
 	props = {
 		ext = { "%.props$", "%.properties$" },
@@ -384,6 +394,10 @@ vis.ftdetect.filetypes = {
 	},
 	texinfo = {
 		ext = { "%.texi$" },
+	},
+	text = {
+		ext = { "%.txt$" },
+		mime = { "text/plain" },
 	},
 	toml = {
 		ext = { "%.toml$" },
@@ -495,6 +509,12 @@ vis.events.subscribe(vis.events.WIN_OPEN, function(win)
 				return
 			end
 		end
+	end
+
+	-- try text lexer as a last resort
+	if (mime or 'text/plain'):match('^text/.+$') then
+		set_filetype('text', vis.ftdetect.filetypes.text)
+		return
 	end
 
 	win:set_syntax(nil)

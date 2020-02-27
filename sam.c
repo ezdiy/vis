@@ -50,6 +50,7 @@ struct Change {
 	const char *data;  /* will be free(3)-ed after transcript has been processed */
 	size_t len;        /* size in bytes of the chunk pointed to by data */
 	Change *next;      /* modification position increase monotonically */
+	int count;         /* how often should data be inserted? */
 };
 
 struct Address {
@@ -209,7 +210,7 @@ static const CommandDef cmds[] = {
 		CMD_ARGV|CMD_FORCE|CMD_ONCE|CMD_ADDRESS_NONE|CMD_DESTRUCTIVE, NULL, cmd_edit
 	}, {
 		"q",            VIS_HELP("Quit the current window")
-		CMD_FORCE|CMD_ONCE|CMD_ADDRESS_NONE|CMD_DESTRUCTIVE, NULL, cmd_quit
+		CMD_ARGV|CMD_FORCE|CMD_ONCE|CMD_ADDRESS_NONE|CMD_DESTRUCTIVE, NULL, cmd_quit
 	}, {
 		"cd",           VIS_HELP("Change directory")
 		CMD_ARGV|CMD_ONCE|CMD_ADDRESS_NONE, NULL, cmd_cd
@@ -241,7 +242,7 @@ static const CommandDef cmds[] = {
 		CMD_ARGV|CMD_ONCE|CMD_ADDRESS_NONE, NULL, cmd_open
 	}, {
 		"qall",         VIS_HELP("Exit vis")
-		CMD_FORCE|CMD_ONCE|CMD_ADDRESS_NONE|CMD_DESTRUCTIVE, NULL, cmd_qall
+		CMD_ARGV|CMD_FORCE|CMD_ONCE|CMD_ADDRESS_NONE|CMD_DESTRUCTIVE, NULL, cmd_qall
 	}, {
 		"set",          VIS_HELP("Set option")
 		CMD_ARGV|CMD_ONCE|CMD_ADDRESS_NONE, NULL, cmd_set
@@ -297,6 +298,7 @@ enum {
 	OPTION_SAVE_METHOD,
 	OPTION_LOAD_METHOD,
 	OPTION_CHANGE_256COLORS,
+	OPTION_LAYOUT,
 };
 
 static const OptionDef options[] = {
@@ -379,6 +381,11 @@ static const OptionDef options[] = {
 		{ "change-256colors" },
 		VIS_OPTION_TYPE_BOOL,
 		VIS_HELP("Change 256 color palette to support 24bit colors")
+	},
+	[OPTION_LAYOUT] = {
+		{ "layout" },
+		VIS_OPTION_TYPE_STRING,
+		VIS_HELP("Vertical or horizontal window layout")
 	},
 };
 
@@ -480,12 +487,13 @@ static void sam_transcript_free(Transcript *t) {
 	}
 }
 
-static bool sam_insert(Win *win, Selection *sel, size_t pos, const char *data, size_t len) {
+static bool sam_insert(Win *win, Selection *sel, size_t pos, const char *data, size_t len, int count) {
 	Filerange range = text_range_new(pos, pos);
 	Change *c = change_new(&win->file->transcript, TRANSCRIPT_INSERT, &range, win, sel);
 	if (c) {
 		c->data = data;
 		c->len = len;
+		c->count = count;
 	}
 	return c;
 }
@@ -494,11 +502,12 @@ static bool sam_delete(Win *win, Selection *sel, Filerange *range) {
 	return change_new(&win->file->transcript, TRANSCRIPT_DELETE, range, win, sel);
 }
 
-static bool sam_change(Win *win, Selection *sel, Filerange *range, const char *data, size_t len) {
+static bool sam_change(Win *win, Selection *sel, Filerange *range, const char *data, size_t len, int count) {
 	Change *c = change_new(&win->file->transcript, TRANSCRIPT_CHANGE, range, win, sel);
 	if (c) {
 		c->data = data;
 		c->len = len;
+		c->count = count;
 	}
 	return c;
 }
@@ -578,10 +587,23 @@ static char *parse_delimited(const char **s, int type) {
 	return chunk;
 }
 
-static char *parse_text(const char **s) {
+static int parse_number(const char **s) {
+	char *end = NULL;
+	int number = strtoull(*s, &end, 10);
+	if (end == *s)
+		return 0;
+	*s = end;
+	return number;
+}
+
+static char *parse_text(const char **s, Count *count) {
 	skip_spaces(s);
+	const char *before = *s;
+	count->start = parse_number(s);
+	if (*s == before)
+		count->start = 1;
 	if (**s != '\n') {
-		const char *before = *s;
+		before = *s;
 		char *text = parse_delimited(s, CMD_TEXT);
 		return (!text && *s != before) ? strdup("") : text;
 	}
@@ -650,15 +672,6 @@ static Regex *parse_regex(Vis *vis, const char **s) {
 	Regex *regex = vis_regex(vis, pattern);
 	free(pattern);
 	return regex;
-}
-
-static int parse_number(const char **s) {
-	char *end = NULL;
-	int number = strtoull(*s, &end, 10);
-	if (end == *s)
-		return 0;
-	*s = end;
-	return number;
 }
 
 static enum SamError parse_count(const char **s, Count *count) {
@@ -924,7 +937,7 @@ static Command *command_parse(Vis *vis, const char **s, enum SamError *err) {
 		goto fail;
 	}
 
-	if (cmddef->flags & CMD_TEXT && !(cmd->argv[1] = parse_text(s))) {
+	if (cmddef->flags & CMD_TEXT && !(cmd->argv[1] = parse_text(s, &cmd->count))) {
 		*err = SAM_ERR_TEXT;
 		goto fail;
 	}
@@ -1223,10 +1236,12 @@ enum SamError sam_cmd(Vis *vis, const char *s) {
 				}
 			}
 			if (c->type & TRANSCRIPT_INSERT) {
-				text_insert(file->text, c->range.start, c->data, c->len);
-				delta += c->len;
+				for (int i = 0; i < c->count; i++) {
+					text_insert(file->text, c->range.start, c->data, c->len);
+					delta += c->len;
+				}
 				Filerange r = text_range_new(c->range.start,
-				                             c->range.start+c->len);
+				                             c->range.start + c->len * c->count);
 				if (c->sel) {
 					if (visual) {
 						view_selections_set(c->sel, &r);
@@ -1315,7 +1330,7 @@ static bool cmd_insert(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 	Buffer buf = text(vis, argv[1]);
 	size_t len = buffer_length(&buf);
 	char *data = buffer_move(&buf);
-	bool ret = sam_insert(win, sel, range->start, data, len);
+	bool ret = sam_insert(win, sel, range->start, data, len, cmd->count.start);
 	if (!ret)
 		free(data);
 	return ret;
@@ -1327,7 +1342,7 @@ static bool cmd_append(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 	Buffer buf = text(vis, argv[1]);
 	size_t len = buffer_length(&buf);
 	char *data = buffer_move(&buf);
-	bool ret = sam_insert(win, sel, range->end, data, len);
+	bool ret = sam_insert(win, sel, range->end, data, len, cmd->count.start);
 	if (!ret)
 		free(data);
 	return ret;
@@ -1339,7 +1354,7 @@ static bool cmd_change(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 	Buffer buf = text(vis, argv[1]);
 	size_t len = buffer_length(&buf);
 	char *data = buffer_move(&buf);
-	bool ret = sam_change(win, sel, range, data, len);
+	bool ret = sam_change(win, sel, range, data, len, cmd->count.start);
 	if (!ret)
 		free(data);
 	return ret;
@@ -1379,9 +1394,13 @@ static int extract(Vis *vis, Win *win, Command *cmd, const char *argv[], Selecti
 		RegexMatch match[nsub];
 		while (start < end || trailing_match) {
 			trailing_match = false;
-			bool found = text_search_range_forward(txt, start,
-				end - start, cmd->regex, nsub, match,
-				start > range->start ? REG_NOTBOL : 0) == 0;
+			char c;
+			int flags = start > range->start &&
+			            text_byte_get(txt, start - 1, &c) && c != '\n' ?
+			            REG_NOTBOL : 0;
+			bool found = !text_search_range_forward(txt, start, end - start,
+			                                        cmd->regex, nsub, match,
+			                                        flags);
 			Filerange r = text_range_empty();
 			if (found) {
 				if (argv[0][0] == 'x')
@@ -1554,6 +1573,10 @@ static bool cmd_substitute(Vis *vis, Win *win, Command *cmd, const char *argv[],
 	return false;
 }
 
+/* cmd_write stores win->file's contents end emits pre/post events.
+ * If the range r covers the whole file, it is updated to account for
+ * potential file's text mutation by a FILE_SAVE_PRE callback.
+ */
 static bool cmd_write(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *r) {
 	if (!win)
 		return false;
@@ -1563,6 +1586,9 @@ static bool cmd_write(Vis *vis, Win *win, Command *cmd, const char *argv[], Sele
 		return false;
 
 	Text *text = file->text;
+	Filerange range_all = text_range_new(0, text_size(text));
+	bool write_entire_file = text_range_equal(r, &range_all);
+
 	const char *filename = argv[1];
 	if (!filename)
 		filename = file->name;
@@ -1580,6 +1606,9 @@ static bool cmd_write(Vis *vis, Win *win, Command *cmd, const char *argv[], Sele
 			vis_info_show(vis, "Rejected write to stdout by pre-save hook");
 			return false;
 		}
+		/* a pre-save hook may have changed the text; need to re-take the range */
+		if (write_entire_file)
+			*r = text_range_new(0, text_size(text));
 
 		bool visual = vis->mode->visual;
 
@@ -1605,31 +1634,47 @@ static bool cmd_write(Vis *vis, Win *win, Command *cmd, const char *argv[], Sele
 			vis_info_show(vis, "WARNING: file will be reduced to active selection");
 			return false;
 		}
-		Filerange all = text_range_new(0, text_size(text));
-		if (!text_range_equal(r, &all)) {
+		if (!write_entire_file) {
 			vis_info_show(vis, "WARNING: file will be reduced to provided range");
 			return false;
 		}
 	}
 
 	for (const char **name = argv[1] ? &argv[1] : (const char*[]){ filename, NULL }; *name; name++) {
+
+		char *path = absolute_path(*name);
+		if (!path)
+			return false;
+
 		struct stat meta;
-		if (cmd->flags != '!' && file->stat.st_mtime && stat(*name, &meta) == 0 &&
-		    file->stat.st_mtime < meta.st_mtime) {
-			vis_info_show(vis, "WARNING: file has been changed since reading it");
-			return false;
+		bool existing_file = !stat(path, &meta);
+		bool same_file = existing_file && file->name &&
+		                 file->stat.st_dev == meta.st_dev && file->stat.st_ino == meta.st_ino;
+
+		if (cmd->flags != '!') {
+			if (same_file && file->stat.st_mtime && file->stat.st_mtime < meta.st_mtime) {
+				vis_info_show(vis, "WARNING: file has been changed since reading it");
+				goto err;
+			}
+			if (existing_file && !same_file) {
+				vis_info_show(vis, "WARNING: file exists");
+				goto err;
+			}
 		}
 
-		if (!vis_event_emit(vis, VIS_EVENT_FILE_SAVE_PRE, file, *name) && cmd->flags != '!') {
-			vis_info_show(vis, "Rejected write to `%s' by pre-save hook", *name);
-			return false;
+		if (!vis_event_emit(vis, VIS_EVENT_FILE_SAVE_PRE, file, path) && cmd->flags != '!') {
+			vis_info_show(vis, "Rejected write to `%s' by pre-save hook", path);
+			goto err;
 		}
+		/* a pre-save hook may have changed the text; need to re-take the range */
+		if (write_entire_file)
+			*r = text_range_new(0, text_size(text));
 
-		TextSave *ctx = text_save_begin(text, *name, file->save_method);
+		TextSave *ctx = text_save_begin(text, path, file->save_method);
 		if (!ctx) {
 			const char *msg = errno ? strerror(errno) : "try changing `:set savemethod`";
-			vis_info_show(vis, "Can't write `%s': %s", *name, msg);
-			return false;
+			vis_info_show(vis, "Can't write `%s': %s", path, msg);
+			goto err;
 		}
 
 		bool failure = false;
@@ -1649,15 +1694,23 @@ static bool cmd_write(Vis *vis, Win *win, Command *cmd, const char *argv[], Sele
 		}
 
 		if (failure || !text_save_commit(ctx)) {
-			vis_info_show(vis, "Can't write `%s': %s", *name, strerror(errno));
-			return false;
+			vis_info_show(vis, "Can't write `%s': %s", path, strerror(errno));
+			goto err;
 		}
 
-		if (!file->name)
-			file_name_set(file, *name);
-		if (strcmp(file->name, *name) == 0)
+		if (!file->name) {
+			file_name_set(file, path);
+			same_file = true;
+		}
+		if (same_file)
 			file->stat = text_stat(text);
-		vis_event_emit(vis, VIS_EVENT_FILE_SAVE_POST, file, *name);
+		vis_event_emit(vis, VIS_EVENT_FILE_SAVE_POST, file, path);
+		free(path);
+		continue;
+
+	err:
+		free(path);
+		return false;
 	}
 	return true;
 }
@@ -1682,7 +1735,7 @@ static bool cmd_filter(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 	} else if (status == 0) {
 		size_t len = buffer_length(&bufout);
 		char *data = buffer_move(&bufout);
-		if (!sam_change(win, sel, range, data, len))
+		if (!sam_change(win, sel, range, data, len, 1))
 			free(data);
 	} else {
 		vis_info_show(vis, "Command failed %s", buffer_content0(&buferr));

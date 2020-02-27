@@ -1359,6 +1359,18 @@ static int pipe_func(lua_State *L) {
 	return 3;
 }
 /***
+ * Redraw complete user interface.
+ *
+ * Will trigger redraw events, make sure to avoid recursive events.
+ *
+ * @function draw
+ */
+static int redraw(lua_State *L) {
+	Vis *vis = obj_ref_check(L, 1, "vis");
+	vis_redraw(vis);
+	return 0;
+}
+/***
  * Currently active window.
  * @tfield Window win
  * @see windows
@@ -1480,6 +1492,7 @@ static const struct luaL_Reg vis_lua[] = {
 	{ "action_register", action_register },
 	{ "exit", exit_func },
 	{ "pipe", pipe_func },
+	{ "redraw", redraw },
 	{ "__index", vis_index },
 	{ "__newindex", vis_newindex },
 	{ NULL, NULL },
@@ -1705,7 +1718,7 @@ static int window_style_define(lua_State *L) {
  * @function style
  * @tparam int id the display style as registered with @{style_define}
  * @tparam int start the absolute file position in bytes
- * @tparam int len the length in bytes to style
+ * @tparam int finish the end position
  * @see style_define
  * @usage
  * win:style(win.STYLE_DEFAULT, 0, 10)
@@ -2157,12 +2170,11 @@ static int file_lines_iterator_it(lua_State *L) {
 		return 0;
 	size_t end = text_line_end(file->text, *start);
 	size_t len = end - *start;
-	char *buf = malloc(len);
+	char *buf = lua_newuserdata(L, len);
 	if (!buf && len)
 		return 0;
 	len = text_bytes_get(file->text, *start, len, buf);
 	lua_pushlstring(L, buf, len);
-	free(buf);
 	*start = text_line_next(file->text, end);
 	return 1;
 }
@@ -2192,12 +2204,11 @@ static int file_content(lua_State *L) {
 	if (!text_range_valid(&range))
 		goto err;
 	size_t len = text_range_size(&range);
-	char *data = malloc(len);
+	char *data = lua_newuserdata(L, len);
 	if (!data)
 		goto err;
 	len = text_bytes_get(file->text, range.start, len, data);
 	lua_pushlstring(L, data, len);
-	free(data);
 	return 1;
 err:
 	lua_pushnil(L);
@@ -2287,12 +2298,11 @@ static int file_lines_index(lua_State *L) {
 	size_t end = text_line_end(txt, start);
 	if (start != EPOS && end != EPOS) {
 		size_t size = end - start;
-		char *data = malloc(size);
+		char *data = lua_newuserdata(L, size);
 		if (!data && size)
 			goto err;
 		size = text_bytes_get(txt, start, size, data);
 		lua_pushlstring(L, data, size);
-		free(data);
 		return 1;
 	}
 err:
@@ -2425,7 +2435,7 @@ static const struct luaL_Reg window_marks_funcs[] = {
  * @type Range
  */
 /***
- * The being of the range.
+ * The beginning of the range.
  * @tfield int start
  */
 /***
@@ -2567,8 +2577,10 @@ bool vis_lua_path_add(Vis *vis, const char *path) {
 	lua_getglobal(L, "package");
 	lua_pushstring(L, path);
 	lua_pushstring(L, "/?.lua;");
-	lua_getfield(L, -3, "path");
-	lua_concat(L, 3);
+	lua_pushstring(L, path);
+	lua_pushstring(L, "/?/init.lua;");
+	lua_getfield(L, -5, "path");
+	lua_concat(L, 5);
 	lua_setfield(L, -2, "path");
 	lua_pop(L, 1); /* package */
 	return true;
@@ -2852,7 +2864,7 @@ void vis_lua_quit(Vis *vis) {
  */
 static bool vis_lua_input(Vis *vis, const char *key, size_t len) {
 	lua_State *L = vis->lua;
-	if (!L || vis->win->file->internal)
+	if (!L || !vis->win || vis->win->file->internal)
 		return false;
 	bool ret = false;
 	vis_lua_event_get(L, "input");

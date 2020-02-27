@@ -48,6 +48,7 @@ LDFLAGS_VIS = $(LDFLAGS_AUTO) $(LDFLAGS_TERMKEY) $(LDFLAGS_CURSES) $(LDFLAGS_ACL
 
 STRIP?=strip
 TAR?=tar
+DOCKER?=docker
 
 all: $(ELF)
 
@@ -83,17 +84,25 @@ vis-single: vis-single.c vis-single-payload.inc
 	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -luntar -llzma -o $@
 	${STRIP} $@
 
-docker: clean
-	docker build -t vis .
-	docker run --rm -d --name vis vis tail -f /dev/null
-	docker exec vis apk update
-	docker exec vis apk upgrade
-	docker cp . vis:/tmp/vis
-	docker exec vis sed -i '/^VERSION/c VERSION = $(VERSION)' Makefile
-	docker exec vis ./configure CC='cc --static'
-	docker exec vis make clean vis-single
-	docker cp vis:/tmp/vis/vis-single vis
-	docker kill vis
+docker-kill:
+	-$(DOCKER) kill vis && $(DOCKER) wait vis
+
+docker: docker-kill clean
+	$(DOCKER) build -t vis .
+	$(DOCKER) run --rm -d --name vis vis tail -f /dev/null
+	$(DOCKER) exec vis apk update
+	$(DOCKER) exec vis apk upgrade
+	$(DOCKER) cp . vis:/build/vis
+	$(DOCKER) exec -w /build/vis vis ./configure CC='cc --static' \
+		--enable-acl \
+		--enable-lua \
+		--enable-lpeg-static
+	$(DOCKER) exec -w /build/vis vis make VERSION="$(VERSION)" clean vis-single
+	$(DOCKER) cp vis:/build/vis/vis-single vis
+	$(DOCKER) kill vis
+
+docker-clean: docker-kill clean
+	-$(DOCKER) image rm vis
 
 debug: clean
 	@$(MAKE) CFLAGS_EXTRA='${CFLAGS_EXTRA} ${CFLAGS_DEBUG}'
@@ -123,7 +132,7 @@ dist: clean
 man:
 	@for m in ${MANUALS}; do \
 		echo "Generating $$m"; \
-		sed -e "s/VERSION/${VERSION}/" "man/$$m" | mandoc -W warning -T utf8 -T xhtml -O man=%N.%S.html -O style=mandoc.css 1> "man/$$m.html" || true; \
+		sed -e "s/VERSION/${VERSION}/" "man/$$m" | mandoc -W warning -T utf8 -T html -O man=%N.%S.html -O style=mandoc.css 1> "man/$$m.html" || true; \
 	done
 
 luadoc:
@@ -136,10 +145,6 @@ luacheck:
 	@luacheck --config .luacheckrc lua test/lua | less -RFX
 
 install: $(ELF)
-	@echo stripping executable
-	@for e in $(ELF); do \
-		${STRIP} "$$e"; \
-	done
 	@echo installing executable files to ${DESTDIR}${PREFIX}/bin
 	@mkdir -p ${DESTDIR}${PREFIX}/bin
 	@for e in ${EXECUTABLES}; do \
@@ -165,6 +170,12 @@ install: $(ELF)
 		chmod 644 "${DESTDIR}${MANPREFIX}/man1/$$m"; \
 	done
 
+install-strip: install
+	@echo stripping executables
+	@for e in $(ELF); do \
+		${STRIP} ${DESTDIR}${PREFIX}/bin/"$$e"; \
+	done
+
 uninstall:
 	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
 	@for e in ${EXECUTABLES}; do \
@@ -181,4 +192,4 @@ uninstall:
 	@echo removing support files from ${DESTDIR}${SHAREPREFIX}/vis
 	@rm -rf ${DESTDIR}${SHAREPREFIX}/vis
 
-.PHONY: all clean dist install uninstall debug profile coverage test test-update luadoc luadoc-all luacheck man docker
+.PHONY: all clean dist install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck man docker-kill docker docker-clean
