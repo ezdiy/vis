@@ -413,7 +413,7 @@ static void window_draw_selections(Win *win) {
 		window_draw_cursor(win, s, &style_cursor, &style_selection);
 	}
 	window_draw_selection(win->view, sel, &style_selection);
-	window_draw_cursor(win, sel, multiple_cursors ? &style_cursor_primary : &style_cursor, &style_selection);
+	window_draw_cursor(win, sel, &style_cursor_primary, &style_selection);
 	for (Selection *s = view_selections_next(sel); s; s = view_selections_next(s)) {
 		window_draw_selection(win->view, s, &style_selection);
 		size_t pos = view_cursors_pos(s);
