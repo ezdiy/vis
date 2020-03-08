@@ -28,6 +28,13 @@
 #include "vis-core.h"
 #include "sam.h"
 
+#if CONFIG_CURSES
+#define CELL_COLOR_DEFAULT (-1)
+#else
+#define CELL_COLOR_DEFAULT { .index = 9 }
+#endif
+
+
 static void macro_replay(Vis *vis, const Macro *macro);
 static void macro_replay_internal(Vis *vis, const Macro *macro);
 static void vis_keys_push(Vis *vis, const char *input, size_t pos, bool record);
@@ -294,7 +301,10 @@ static void window_draw_colorcolumn(Win *win) {
 
 		/* This screen line contains the cell we want to highlight */
 		if (cc <= line_cols + width) {
-			l->cells[(cc - 1) - line_cols].style = style;
+			CellStyle* orig = & l->cells[(cc - 1) - line_cols].style;
+			orig->attr = style.attr;
+			orig->fg = style.fg != CELL_COLOR_DEFAULT ? style.fg : orig->fg;
+			orig->bg = style.bg != CELL_COLOR_DEFAULT ? style.bg : orig->bg;
 			line_cc_set = true;
 		} else {
 			line_cols += width;
