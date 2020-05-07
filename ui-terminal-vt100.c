@@ -108,8 +108,8 @@ static void ui_vt100_blit(UiTerm *tui) {
 	CellColor fg = CELL_COLOR_DEFAULT, bg = CELL_COLOR_DEFAULT;
 	int w = tui->width, h = tui->height;
 	Cell *cell = tui->cells;
-	/* erase screen, reposition cursor, reset attributes */
-	buffer_append0(buf, "\x1b[2J" "\x1b[H" "\x1b[0m");
+	/* reposition cursor, erase screen, reset attributes */
+	buffer_append0(buf, "\x1b[H" "\x1b[J" "\x1b[0m");
 	for (int y = 0; y < h; y++) {
 		for (int x = 0; x < w; x++) {
 			CellStyle *style = &cell->style;
@@ -214,4 +214,8 @@ static void ui_vt100_free(UiTerm *tui) {
 	UiVt100 *vtui = (UiVt100*)tui;
 	ui_vt100_suspend(tui);
 	buffer_release(&vtui->buf);
+}
+
+bool is_default_color(CellColor c) {
+	return c.index == ((CellColor) CELL_COLOR_DEFAULT).index;
 }

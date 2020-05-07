@@ -116,6 +116,9 @@ vis.ftdetect.filetypes = {
 	elixir = {
 		ext = { "%.ex$", "%.exs$" },
 	},
+	elm = {
+		ext = { "%.elm$" },
+	},
 	erlang = {
 		ext = { "%.erl$", "%.hrl$" },
 	},
@@ -209,6 +212,9 @@ vis.ftdetect.filetypes = {
 	},
 	jsp = {
 		ext = { "%.jsp$" },
+	},
+	julia = {
+		ext = { "%.jl$" },
 	},
 	latex = {
 		ext = { "%.bbl$", "%.cls$", "%.dtx$", "%.ins$", "%.ltx$", "%.tex$", "%.sty$" },

@@ -27,12 +27,7 @@
 #include "util.h"
 #include "vis-core.h"
 #include "sam.h"
-
-#if CONFIG_CURSES
-#define CELL_COLOR_DEFAULT (-1)
-#else
-#define CELL_COLOR_DEFAULT { .index = 9 }
-#endif
+#include "ui.h"
 
 
 static void macro_replay(Vis *vis, const Macro *macro);
@@ -301,10 +296,10 @@ static void window_draw_colorcolumn(Win *win) {
 
 		/* This screen line contains the cell we want to highlight */
 		if (cc <= line_cols + width) {
-			CellStyle* orig = & l->cells[(cc - 1) - line_cols].style;
+			CellStyle *orig = &l->cells[cc - 1 - line_cols].style;
 			orig->attr = style.attr;
-			orig->fg = style.fg != CELL_COLOR_DEFAULT ? style.fg : orig->fg;
-			orig->bg = style.bg != CELL_COLOR_DEFAULT ? style.bg : orig->bg;
+			orig->fg = is_default_color(style.fg) ? orig->fg : style.fg;
+			orig->bg = is_default_color(style.bg) ? orig->bg : style.bg;
 			line_cc_set = true;
 		} else {
 			line_cols += width;
@@ -412,7 +407,6 @@ static void window_draw_cursor(Win *win, Selection *cur, CellStyle *style, CellS
 static void window_draw_selections(Win *win) {
 	View *view = win->view;
 	Filerange viewport = view_viewport_get(view);
-	bool multiple_cursors = view_selections_count(view) > 1;
 	Selection *sel = view_selections_primary_get(view);
 	CellStyle style_cursor = win->ui->style_get(win->ui, UI_STYLE_CURSOR);
 	CellStyle style_cursor_primary = win->ui->style_get(win->ui, UI_STYLE_CURSOR_PRIMARY);

@@ -1389,9 +1389,9 @@ static int extract(Vis *vis, Win *win, Command *cmd, const char *argv[], Selecti
 		bool trailing_match = false;
 		size_t start = range->start, end = range->end, last_start = EPOS;
 		size_t nsub = 1 + text_regex_nsub(cmd->regex);
-		if (nsub > 10)
-			nsub = 10;
-		RegexMatch match[nsub];
+		if (nsub > MAX_REGEX_SUB)
+			nsub = MAX_REGEX_SUB;
+		RegexMatch match[MAX_REGEX_SUB];
 		while (start < end || trailing_match) {
 			trailing_match = false;
 			char c;
@@ -1558,8 +1558,8 @@ static bool cmd_files(Vis *vis, Win *win, Command *cmd, const char *argv[], Sele
 	for (Win *win = vis->windows; win; win = win->next) {
 		if (win->file->internal)
 			continue;
-		bool match = !cmd->regex || (win->file->name &&
-		             text_regex_match(cmd->regex, win->file->name, 0));
+		bool match = !cmd->regex ||
+		             (win->file->name && text_regex_match(cmd->regex, win->file->name, 0) == 0);
 		if (match ^ (argv[0][0] == 'Y')) {
 			Filerange def = text_range_new(0, 0);
 			ret &= sam_execute(vis, win, cmd->cmd, NULL, &def);
