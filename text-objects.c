@@ -16,7 +16,7 @@ Filerange text_object_entire(Text *txt, size_t pos) {
 }
 
 static Filerange text_object_customword(Text *txt, size_t pos, int (*isboundary)(int)) {
-	Filerange r;
+	Filerange r = (Filerange){ .start = pos, .end = pos };
 	char c, prev = '0', next = '0';
 	Iterator it = text_iterator_get(txt, pos);
 	if (!text_iterator_byte_get(&it, &c))
@@ -24,36 +24,10 @@ static Filerange text_object_customword(Text *txt, size_t pos, int (*isboundary)
 	if (pos > 0 && text_iterator_byte_prev(&it, &prev))
 		text_iterator_byte_next(&it, NULL);
 	text_iterator_byte_next(&it, &next);
-	if (space(c)) {
-		r.start = text_char_next(txt, text_customword_end_prev(txt, pos, isboundary));
-		r.end = text_customword_start_next(txt, pos, isboundary);
-	} else if (boundary(prev) && boundary(next)) {
-		if ((space(prev) && space(next)) || !boundary(c)) {
-			/* on a single character */
-			r.start = pos;
-			r.end = text_char_next(txt, pos);
-		} else if (space(prev)) {
-			r.start = pos;
-			r.end = text_char_next(txt, text_customword_end_next(txt, pos, isboundary));
-		} else if (space(next)) {
-			r.start = text_customword_start_prev(txt, pos, isboundary);
-			r.end = text_char_next(txt, pos);
-		} else {
-			r.start = text_customword_start_prev(txt, pos, isboundary);
-			r.end = text_char_next(txt, text_customword_end_next(txt, pos, isboundary));
-		}
-	} else if (boundary(prev)) {
-		/* at start of a word */
-		r.start = pos;
-		r.end = text_char_next(txt, text_customword_end_next(txt, pos, isboundary));
-	} else if (boundary(next)) {
-		/* at end of a word */
-		r.start = text_customword_start_prev(txt, pos, isboundary);
-		r.end = text_char_next(txt, pos);
-	} else {
-		/* in the middle of a word */
-		r.start = text_customword_start_prev(txt, pos, isboundary);
-		r.end = text_char_next(txt, text_customword_end_next(txt, pos, isboundary));
+	if (!space(c)) {
+		size_t prev_pos = prev ? text_char_prev(txt, pos) : pos;
+		r.start = text_customword_start_prev(txt, text_char_next(txt, pos), isboundary);
+		r.end = (boundary(c) && !boundary(next)) ? pos : text_char_next(txt, text_customword_end_next(txt, prev_pos, isboundary));
 	}
 
 	return r;
