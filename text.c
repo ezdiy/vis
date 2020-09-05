@@ -829,7 +829,7 @@ static int mkstempat(int dirfd, char *template) {
 	fd = mkstemp(template);
 err:
 	if (cwd != -1) {
-		fchdir(cwd);
+		if (fchdir(cwd)) {}
 		close(cwd);
 	}
 	return fd;
