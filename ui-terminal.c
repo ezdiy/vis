@@ -303,7 +303,7 @@ static void ui_arrange(Ui *ui, enum UiLayout layout) {
 	int n = 0, m = !!tui->info[0], x = 0, y = 0;
 	for (UiTermWin *win = tui->windows; win; win = win->next) {
 		if (win->options & UI_OPTION_ONELINE)
-			m += 5;
+			m++;
 		else
 			n++;
 	}
@@ -342,10 +342,8 @@ static void ui_arrange(Ui *ui, enum UiLayout layout) {
 	for (UiTermWin *win = tui->windows; win; win = win->next) {
 		if (!(win->options & UI_OPTION_ONELINE))
 			continue;
-		int h = tui->height - y;
-		ui_window_resize(win, tui->width, h);
-		ui_window_move(win, 0, y);
-		y += h;
+		ui_window_resize(win, tui->width, 1);
+		ui_window_move(win, 0, y++);
 	}
 }
 
