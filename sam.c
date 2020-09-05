@@ -300,6 +300,7 @@ enum {
 	OPTION_LOAD_METHOD,
 	OPTION_CHANGE_256COLORS,
 	OPTION_LAYOUT,
+	OPTION_HIDESTATUS,
 	OPTION_SMARTCASE,
 	OPTION_LITERAL,
 };
@@ -415,6 +416,11 @@ static const OptionDef options[] = {
 		{ "layout" },
 		VIS_OPTION_TYPE_STRING,
 		VIS_HELP("Vertical or horizontal window layout")
+	},
+	[OPTION_HIDESTATUS] = {
+		{ "hidestatus" },
+		VIS_OPTION_TYPE_BOOL,
+		VIS_HELP("Hide status line in command modes")
 	},
 	[OPTION_SMARTCASE] = {
 		{ "smartcase", "scs" },

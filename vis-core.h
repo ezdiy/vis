@@ -191,6 +191,7 @@ struct Vis {
 	bool change_colors;                  /* whether to adjust 256 color palette for true colors */
 	bool smartcase;                      /* case-insensitive search, unless the pattern contains upper case characters */
 	bool literal;                        /* literal string search */
+	bool hidestatus;                     /* hide status bar on input */
 	char *shell;                         /* shell used to launch external commands */
 	Map *cmds;                           /* ":"-commands, used for unique prefix queries */
 	Map *usercmds;                       /* user registered ":"-commands */

@@ -309,16 +309,21 @@ static void ui_arrange(Ui *ui, enum UiLayout layout) {
 	}
 	int max_height = tui->height - m;
 	int width = (tui->width / MAX(1, n)) - 1;
-	int height = max_height / MAX(1, n);
+	int height = tui->height / MAX(1, n);
 	for (UiTermWin *win = tui->windows; win; win = win->next) {
 		if (win->options & UI_OPTION_ONELINE)
 			continue;
 		n--;
 		if (layout == UI_LAYOUT_HORIZONTAL) {
 			int h = n ? height : max_height - y;
+			int ny = y + h;
+			if (max_height == tui->height)
+				win->options |= UI_OPTION_STATUSBAR;
+			else if (tui->vis->hidestatus && (max_height == ny))
+				win->options &= ~UI_OPTION_STATUSBAR;
 			ui_window_resize(win, tui->width, h);
 			ui_window_move(win, x, y);
-			y += h;
+			y = ny;
 		} else {
 			int w = n ? width : tui->width - x;
 			ui_window_resize(win, w, max_height);
