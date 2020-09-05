@@ -151,10 +151,11 @@ dist: distclean
 	@echo creating dist tarball
 	@git archive --prefix=vis-${VERSION}/ -o vis-${VERSION}.tar.gz HEAD
 
-html: ${MANUALS:%=man/%.html}
-
-${MANUALS:%=man/%.html}: man/%.html: man/%
-	sed -e "s/VERSION/${VERSION}/" "$<" | mandoc -W warning -T utf8 -T html -O man=%N.%S.html -O style=mandoc.css 1> "$@" || true
+man:
+	@for m in ${MANUALS}; do \
+		echo "Generating $$m"; \
+		sed -e "s/VERSION/${VERSION}/" "man/$$m" | mandoc -W warning -T utf8 -T html -O man=%N.%S.html -O style=mandoc.css 1> "man/$$m.html" || true; \
+	done
 
 luadoc:
 	@cd lua/doc && ldoc . && sed -e "s/RELEASE/${VERSION}/" -i index.html
@@ -165,29 +166,31 @@ luadoc-all:
 luacheck:
 	@luacheck --config .luacheckrc lua test/lua | less -RFX
 
-install: ${EXECUTABLES:%=${DESTDIR}${PREFIX}/bin/%} ${MANUALS:%=${DESTDIR}${MANPREFIX}/man1/%} ${DOCUMENTATION:%=${DESTDIR}${DOCPREFIX}/vis/%}
-
-ifneq (${CONFIG_LUA}, 0)
-
-LUA_FILES := $(wildcard lua/*.lua lua/*/*.lua)
-install: ${LUA_FILES:lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}
-
-${LUA_FILES:lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}: ${DESTDIR}${SHAREPREFIX}/vis/%: lua/% | ${DESTDIR}${SHAREPREFIX}/vis
-	install -D -m 0644 "$<" "$@"
-
-endif
-
-${DESTDIR}${BINDIR} ${DESTDIR}${MANPREFIX}/man1 ${DESTDIR}${DOCPREFIX}/vis ${DESTDIR}${SHAREPREFIX}/vis:
-	mkdir -p "$@"
-
-${EXECUTABLES:%=${DESTDIR}${BINDIR}/%}: ${DESTDIR}${BINDIR}/%: % | ${DESTDIR}${BINDIR}
-	install "$<" "${DESTDIR}${BINDIR}"
-
-${MANUALS:%=${DESTDIR}${MANPREFIX}/man1/%}: ${DESTDIR}${MANPREFIX}/man1/%: man/% | ${DESTDIR}${MANPREFIX}/man1
-	sed -e "s/VERSION/${VERSION}/" < "$<" > "$@"
-
-${DOCUMENTATION:%=${DESTDIR}${DOCPREFIX}/vis/%}: ${DESTDIR}${DOCPREFIX}/vis/%: % | ${DESTDIR}${DOCPREFIX}/vis
-	install -m 0644 "$<" "$@"
+install: $(ELF)
+	@echo installing executable files to ${DESTDIR}${PREFIX}/bin
+	@mkdir -p "${DESTDIR}${PREFIX}/bin"
+	@for e in ${EXECUTABLES}; do \
+		cp -f "$$e" "${DESTDIR}${PREFIX}/bin" && \
+		chmod 755 "${DESTDIR}${PREFIX}/bin/$$e"; \
+	done
+	@test "${CONFIG_LUA}" -eq 0 || { \
+		echo installing support files to ${DESTDIR}${SHAREPREFIX}/vis; \
+		mkdir -p "${DESTDIR}${SHAREPREFIX}/vis"; \
+		cp -r lua/* "${DESTDIR}${SHAREPREFIX}/vis"; \
+		rm -rf "${DESTDIR}${SHAREPREFIX}/vis/doc"; \
+	}
+	@echo installing documentation to ${DESTDIR}${DOCPREFIX}/vis
+	@mkdir -p "${DESTDIR}${DOCPREFIX}/vis"
+	@for d in ${DOCUMENTATION}; do \
+		cp "$$d" "${DESTDIR}${DOCPREFIX}/vis" && \
+		chmod 644 "${DESTDIR}${DOCPREFIX}/vis/$$d"; \
+	done
+	@echo installing manual pages to ${DESTDIR}${MANPREFIX}/man1
+	@mkdir -p "${DESTDIR}${MANPREFIX}/man1"
+	@for m in ${MANUALS}; do \
+		sed -e "s/VERSION/${VERSION}/" < "man/$$m" >  "${DESTDIR}${MANPREFIX}/man1/$$m" && \
+		chmod 644 "${DESTDIR}${MANPREFIX}/man1/$$m"; \
+	done
 
 install-strip: install
 	@echo stripping executables
@@ -196,9 +199,21 @@ install-strip: install
 	done
 
 uninstall:
-	@echo uninstalling
-	@rm -f ${EXECUTABLES:%=${DESTDIR}${PREFIX}/bin/%} ${MANUALS:%=${DESTDIR}${MANPREFIX}/man1/%} ${DOCUMENTATION:%=${DESTDIR}${DOCPREFIX}/vis/%} ${LUA_FILES:lua/%=${DESTDIR}${SHAREPREFIX}/vis/%}
+	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
+	@for e in ${EXECUTABLES}; do \
+		rm -f "${DESTDIR}${PREFIX}/bin/$$e"; \
+	done
+	@echo removing documentation from ${DESTDIR}${DOCPREFIX}/vis
+	@for d in ${DOCUMENTATION}; do \
+		rm -f "${DESTDIR}${DOCPREFIX}/vis/$$d"; \
+	done
+	@echo removing manual pages from ${DESTDIR}${MANPREFIX}/man1
+	@for m in ${MANUALS}; do \
+		rm -f "${DESTDIR}${MANPREFIX}/man1/$$m"; \
+	done
+	@echo removing support files from ${DESTDIR}${SHAREPREFIX}/vis
+	@rm -rf "${DESTDIR}${SHAREPREFIX}/vis"
 
-.PHONY: all clean testclean dist distclean install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck html docker-kill docker docker-clean
+.PHONY: all clean testclean dist distclean install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck man docker-kill docker docker-clean
 
 -include ${SRC:%.c=%.d}
