@@ -748,12 +748,12 @@ static void print_symbolic_keys(Vis *vis, Text *txt) {
 }
 
 static bool cmd_help(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
-	if (!vis_window_new(vis, NULL))
+	if (vis->win->file->name && !vis_window_new(vis, NULL))
 		return false;
 
 	Text *txt = vis->win->file->text;
 
-	text_appendf(txt, "vis %s (PID: %ld)\n\n", VERSION, (long)getpid());
+	text_appendf(txt, "vis %s (PID: %ld)\n\n", STR(VERSION), (long)getpid());
 
 	text_appendf(txt, " Modes\n\n");
 	for (int i = 0; i < LENGTH(vis_modes); i++) {
@@ -837,6 +837,7 @@ static bool cmd_help(Vis *vis, Win *win, Command *cmd, const char *argv[], Selec
 		text_appendf(txt, "  %-32s\t%s\n", configs[i].name, configs[i].enabled ? "yes" : "no");
 
 	text_save(txt, NULL);
+	text_history_forget(txt);
 	view_cursor_to(vis->win->view, 0);
 
 	if (argv[1])

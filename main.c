@@ -965,12 +965,12 @@ static const KeyAction vis_action[] = {
 	[VIS_ACTION_SELECTIONS_PREV] = {
 		"vis-selection-prev",
 		VIS_HELP("Move to the previous selection")
-		selections_navigate, { .i = -PAGE_HALF }
+		selections_navigate, { .i = -1 }
 	},
 	[VIS_ACTION_SELECTIONS_NEXT] = {
 		"vis-selection-next",
 		VIS_HELP("Move to the next selection")
-		selections_navigate, { .i = +PAGE_HALF }
+		selections_navigate, { .i = +1 }
 	},
 	[VIS_ACTION_SELECTIONS_ROTATE_LEFT] = {
 		"vis-selections-rotate-left",
@@ -1468,8 +1468,6 @@ static const char *selections_remove_column_except(Vis *vis, const char *keys, c
 
 static const char *selections_navigate(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
-	if (view_selections_count(view) == 1)
-		return wscroll(vis, keys, arg);
 	Selection *s = view_selections_primary_get(view);
 	VisCountIterator it = vis_count_iterator_get(vis, 1);
 	while (vis_count_iterator_next(&it)) {
@@ -2273,7 +2271,7 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(argv[i], "--") == 0) {
 			break;
 		} else if (strcmp(argv[i], "-v") == 0) {
-			printf("vis %s%s%s%s%s%s%s\n", VERSION,
+			printf("vis %s%s%s%s%s%s%s\n", STR(VERSION),
 			       CONFIG_CURSES ? " +curses" : "",
 			       CONFIG_LUA ? " +lua" : "",
 			       CONFIG_LPEG ? " +lpeg" : "",

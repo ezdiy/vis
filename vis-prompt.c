@@ -28,12 +28,26 @@ static void prompt_hide(Win *win) {
 	char lastchar = '\0';
 	if (size >= 1 && text_byte_get(txt, size-1, &lastchar) && lastchar != '\n')
 		text_insert(txt, size, "\n", 1);
-	/* remove empty entries */
-	Filerange line_range = text_object_line(txt, text_size(txt)-1);
-	char *line = text_bytes_alloc0(txt, line_range.start, text_range_size(&line_range));
-	if (line && (line[0] == '\n' || (strchr(":/?", line[0]) && (line[1] == '\n' || line[1] == '\0'))))
-		text_delete_range(txt, &line_range);
-	free(line);
+	Filerange lastrange = text_object_line(txt, text_size(txt)-1);
+	char *lastline = text_bytes_alloc0(txt, lastrange.start, text_range_size(&lastrange));
+	if (lastline) {
+		if (lastline[0] == '\n' || (strchr(":/?", lastline[0]) && (lastline[1] == '\n' || lastline[1] == '\0')))
+			text_delete_range(txt, &lastrange);
+		size_t pos = lastrange.start;
+		size_t prev = pos;
+		while (pos > (prev = text_line_prev(txt, pos))) {
+			pos = prev;
+			Filerange range = text_object_line(txt, pos);
+			if (text_range_size(&range) > 0) {
+				char *histline = text_bytes_alloc0(txt, range.start, text_range_size(&range));
+				if (histline[0] == '\n' || (strchr(":/?", histline[0]) && (histline[1] == '\n' || histline[1] == '\0')) || \
+					!strncmp(histline, lastline, strlen(histline)))
+					text_delete_range(txt, &range);
+				free(histline);
+			}
+		}
+	}
+	free(lastline);
 	vis_window_close(win);
 }
 
@@ -53,30 +67,23 @@ static const char *prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = prompt->file->text;
 	Win *win = prompt->parent;
 	char *cmd = NULL;
+	const char *prefix = NULL;
 
 	Filerange range = view_selection_get(view);
+	if (prompt->file == vis->command_file)
+		prefix = ":";
+	else if (prompt->file == vis->search_file)
+		prefix = "/?";
 	if (!vis->mode->visual) {
-		const char *pattern = NULL;
-		Regex *regex = text_regex_new();
 		size_t pos = view_cursor_get(view);
-		if (prompt->file == vis->command_file)
-			pattern = "^:";
-		else if (prompt->file == vis->search_file)
-			pattern = "^(/|\\?)";
-		if (pattern && regex && text_regex_compile(regex, pattern, REG_EXTENDED|REG_NEWLINE) == 0) {
-			size_t end = text_line_end(txt, pos);
-			size_t prev = text_search_backward(txt, end, regex);
-			if (prev > pos)
-				prev = EPOS;
-			size_t next = text_search_forward(txt, pos, regex);
-			if (next < pos)
-				next = text_size(txt);
-			range = text_range_new(prev, next);
-		}
-		text_regex_free(regex);
+		range = text_object_line(txt, pos);
 	}
-	if (text_range_valid(&range))
+	if (text_range_size(&range) > 1)
 		cmd = text_bytes_alloc0(txt, range.start, text_range_size(&range));
+	if (cmd && !strchr(prefix, cmd[0])) {
+		free(cmd);
+		cmd = NULL;
+	}
 
 	if (!win || !cmd) {
 		if (!win)
@@ -84,6 +91,7 @@ static const char *prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
 		else if (!cmd)
 			vis_info_show(vis, "Failed to detect command");
 		prompt_restore(prompt);
+		text_delete_range(txt, &range);
 		prompt_hide(prompt);
 		free(cmd);
 		return keys;
@@ -93,15 +101,11 @@ static const char *prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
 	if (len > 0 && cmd[len-1] == '\n')
 		cmd[len-1] = '\0';
 
-	bool lastline = (range.end == text_size(txt));
-
 	prompt_restore(prompt);
 	if (vis_prompt_cmd(vis, cmd)) {
-		prompt_hide(prompt);
-		if (!lastline) {
-			text_delete(txt, range.start, text_range_size(&range));
+		if (range.end != text_size(txt))
 			text_appendf(txt, "%s\n", cmd);
-		}
+		prompt_hide(prompt);
 	} else {
 		vis->win = prompt;
 		vis->mode = &vis_modes[VIS_MODE_INSERT];
@@ -122,13 +126,6 @@ static const char *prompt_esc(Vis *vis, const char *keys, const Arg *arg) {
 	return keys;
 }
 
-static const char *prompt_up(Vis *vis, const char *keys, const Arg *arg) {
-	vis_motion(vis, VIS_MOVE_LINE_UP);
-	vis_window_mode_unmap(vis->win, VIS_MODE_INSERT, "<Up>");
-	view_options_set(vis->win->view, UI_OPTION_SYMBOL_EOF);
-	return keys;
-}
-
 static const KeyBinding prompt_enter_binding = {
 	.key = "<Enter>",
 	.action = &(KeyAction){
@@ -143,13 +140,6 @@ static const KeyBinding prompt_esc_binding = {
 	},
 };
 
-static const KeyBinding prompt_up_binding = {
-	.key = "<Up>",
-	.action = &(KeyAction){
-		.func = prompt_up,
-	},
-};
-
 static const KeyBinding prompt_tab_binding = {
 	.key = "<Tab>",
 	.alias = "<C-x><C-o>",
@@ -157,24 +147,25 @@ static const KeyBinding prompt_tab_binding = {
 
 void vis_prompt_show(Vis *vis, const char *title) {
 	Win *active = vis->win;
-	Win *prompt = window_new_file(vis, title[0] == ':' ? vis->command_file : vis->search_file,
-		UI_OPTION_ONELINE);
-	if (!prompt)
-		return;
-	Text *txt = prompt->file->text;
-	text_appendf(txt, "%s\n", title);
-	Selection *sel = view_selections_primary_get(prompt->view);
-	view_cursors_scroll_to(sel, text_size(txt)-1);
-	prompt->parent = active;
-	prompt->parent_mode = vis->mode;
-	vis_window_mode_map(prompt, VIS_MODE_NORMAL, true, "<Enter>", &prompt_enter_binding);
-	vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Enter>", &prompt_enter_binding);
-	vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<C-j>", &prompt_enter_binding);
-	vis_window_mode_map(prompt, VIS_MODE_VISUAL, true, "<Enter>", &prompt_enter_binding);
-	vis_window_mode_map(prompt, VIS_MODE_NORMAL, true, "<Escape>", &prompt_esc_binding);
-	vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Up>", &prompt_up_binding);
-	if (CONFIG_LUA)
-		vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Tab>", &prompt_tab_binding);
+	if (active->file != vis->command_file && active->file != vis->search_file) {
+		Win *prompt = window_new_file(vis, title[0] == ':' ? vis->command_file : vis->search_file,
+			UI_OPTION_ONELINE | UI_OPTION_SYMBOL_EOF);
+		if (!prompt)
+			return;
+		Text *txt = prompt->file->text;
+		text_appendf(txt, "%s\n", title);
+		Selection *sel = view_selections_primary_get(prompt->view);
+		view_cursors_scroll_to(sel, text_size(txt)-1);
+		prompt->parent = active;
+		prompt->parent_mode = vis->mode;
+		vis_window_mode_map(prompt, VIS_MODE_NORMAL, true, "<Enter>", &prompt_enter_binding);
+		vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Enter>", &prompt_enter_binding);
+		vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<C-j>", &prompt_enter_binding);
+		vis_window_mode_map(prompt, VIS_MODE_VISUAL, true, "<Enter>", &prompt_enter_binding);
+		vis_window_mode_map(prompt, VIS_MODE_NORMAL, true, "<Escape>", &prompt_esc_binding);
+		if (CONFIG_LUA)
+			vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Tab>", &prompt_tab_binding);
+	}
 	vis_mode_switch(vis, VIS_MODE_INSERT);
 }
 
@@ -201,8 +192,8 @@ void vis_message_show(Vis *vis, const char *msg) {
 	size_t pos = text_size(txt);
 	text_appendf(txt, "%s\n", msg);
 	text_save(txt, NULL);
+	text_history_forget(txt);
 	view_cursor_to(win->view, pos);
-	vis_window_focus(win);
 }
 
 void vis_message_hide(Vis *vis) {

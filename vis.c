@@ -377,9 +377,15 @@ static void window_draw_cursor_matching(Win *win, Selection *cur, CellStyle *sty
 		return;
 	Line *line_match; int col_match;
 	size_t pos = view_cursors_pos(cur);
+	char cur_char = '\0', prev_char = '\0';
+	text_byte_get(win->file->text, pos, &cur_char);
+	if (win->vis->mode->id == VIS_MODE_INSERT)
+		text_byte_get(win->file->text, pos - 1, &prev_char);
+	bool trail = prev_char && (prev_char == ')' || prev_char == '}' || prev_char == ']');
+	size_t closing_pos = pos - (trail ? 1 : 0);
 	Filerange limits = view_viewport_get(win->view);
-	size_t pos_match = text_bracket_match_symbol(win->file->text, pos, "(){}[]\"'`", &limits);
-	if (pos == pos_match)
+	size_t pos_match = text_bracket_match_symbol(win->file->text, closing_pos, "(){}[]\"'`", &limits);
+	if (closing_pos == pos_match)
 		return;
 	if (!view_coord_get(win->view, pos_match, &line_match, NULL, &col_match))
 		return;
@@ -485,8 +491,10 @@ Win *window_new_file(Vis *vis, File *file, enum UiOption options) {
 		vis->windows->prev = win;
 	win->next = vis->windows;
 	vis->windows = win;
-	vis->win = win;
-	vis->ui->window_focus(win->ui);
+	if (file != vis->error_file) {
+		vis->win = win;
+		vis->ui->window_focus(win->ui);
+	}
 	for (size_t i = 0; i < LENGTH(win->modes); i++)
 		win->modes[i].parent = &vis_modes[i];
 	vis_event_emit(vis, VIS_EVENT_WIN_OPEN, win);
@@ -848,7 +856,7 @@ void vis_do(Vis *vis) {
 	bool multiple_cursors = view_selections_count(view) > 1;
 
 	bool linewise = !(a->type & CHARWISE) && (
-		a->type & LINEWISE || (a->movement && a->movement->type & LINEWISE) ||
+		a->type & LINEWISE || (a->textobj && a->textobj->type & TEXTOBJECT_LINEWISE) || (a->movement && a->movement->type & LINEWISE) ||
 		vis->mode == &vis_modes[VIS_MODE_VISUAL_LINE]);
 
 	Register *reg = a->reg;
@@ -935,8 +943,11 @@ void vis_do(Vis *vis) {
 					view_cursors_to(sel, pos);
 				if (vis->mode->visual)
 					c.range = view_selections_get(sel);
-			} else if (a->movement->type & INCLUSIVE && c.range.end > start) {
-				c.range.end = text_char_next(txt, c.range.end);
+			} else if (a->movement->type & INCLUSIVE) {
+				if (pos < start)
+					c.range.start = text_char_next(txt, c.range.start);
+				else
+					c.range.end = text_char_next(txt, c.range.end);
 			} else if (linewise && (a->movement->type & LINEWISE_INCLUSIVE)) {
 				c.range.end = text_char_next(txt, c.range.end);
 			}
@@ -1679,17 +1690,36 @@ void vis_insert_nl(Vis *vis) {
 	vis_window_invalidate(win);
 }
 
-Regex *vis_regex(Vis *vis, const char *pattern) {
-	if (!pattern && !(pattern = register_get(vis, &vis->registers[VIS_REG_SEARCH], NULL)))
+Regex *vis_regex(Vis *vis, const char *pattern, bool slashmotion) {
+	if (!pattern && !vis->last_search)
 		return NULL;
+	if (!pattern) {
+		return vis->last_search;
+	} else if (vis->last_search) {
+		text_regex_free(vis->last_search);
+		vis->last_search = NULL;
+	}
 	Regex *regex = text_regex_new();
 	if (!regex)
 		return NULL;
-	if (text_regex_compile(regex, pattern, REG_EXTENDED|REG_NEWLINE) != 0) {
-		text_regex_free(regex);
-		return NULL;
+	int reg_smartcase = 0;
+	if (slashmotion && vis->smartcase) {
+		Regex *has_upper = text_regex_new();
+		if (has_upper &&
+			text_regex_compile(has_upper, "[[:upper:]]", REG_NOSUB, false, false) == 0 &&
+			text_regex_match(has_upper, pattern, 0) != 0) {
+			reg_smartcase = REG_ICASE;
+		}
+		text_regex_free(has_upper);
+	}
+	if (text_regex_compile(regex, pattern, REG_EXTENDED|REG_NEWLINE|reg_smartcase, slashmotion, vis->literal) != 0) {
+		if (!slashmotion)
+			text_regex_free(regex);
+		if (!slashmotion || !vis->literal)
+			return NULL;
 	}
 	register_put0(vis, &vis->registers[VIS_REG_SEARCH], pattern);
+	vis->last_search = regex;
 	return regex;
 }
 

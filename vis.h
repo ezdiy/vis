@@ -40,6 +40,9 @@ typedef struct Win Win;
 /* maximum bytes needed for string representation of a (pseudo) key */
 #define VIS_KEY_LENGTH_MAX 64
 
+#define XSTR(x) #x
+#define STR(x) XSTR(x)
+
 /**
  * Editor event handlers.
  */
@@ -759,6 +762,8 @@ enum VisRegister {
  */
 /** Translate single character register name to corresponding constant. */
 enum VisRegister vis_register_from(Vis*, char reg);
+/** Translate register constant to corresponding character register name. */
+char *vis_register_name(Vis*, enum VisRegister reg);
 /**
  * Specify register to use.
  * @rst
@@ -953,12 +958,13 @@ void vis_keys_feed(Vis*, const char *keys);
  * Get a regex object matching pattern.
  * @param regex The regex pattern to compile, if ``NULL`` the most recently used
  *        one is substituted.
+ * @param slashmotion Whether `smartcase` should be considered when compiling this pattern.
  * @return A Regex object or ``NULL`` in case of an error.
  * @rst
  * .. warning:: The caller must free the regex object using `text_regex_free`.
  * @endrst
  */
-Regex *vis_regex(Vis*, const char *pattern);
+Regex *vis_regex(Vis*, const char *pattern, bool slashmotion);
 
 /**
  * Take an undo snaphost to which we can later revert to.

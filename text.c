@@ -1322,6 +1322,17 @@ void text_snapshot(Text *txt) {
 	txt->cache = NULL;
 }
 
+void text_history_forget(Text *txt) {
+	Revision *hist = txt->history;
+	while (hist && hist->prev)
+		hist = hist->prev;
+	txt->current_revision = hist;
+	txt->saved_revision = hist;
+	txt->last_revision = hist;
+	txt->history = hist;
+	hist->later = NULL;
+	hist->next = NULL;
+}
 
 void text_free(Text *txt) {
 	if (!txt)
@@ -1437,6 +1448,15 @@ bool text_iterator_byte_next(Iterator *it, char *b) {
 	if (b)
 		*b = *it->text;
 	return true;
+}
+
+bool text_iterator_bytes_skip(Text *text, Iterator *it, int n) {
+	Iterator new = text_iterator_get(text, it->pos + n);
+	if (text_iterator_valid(&new)) {
+		*it = new;
+		return true;
+	}
+	return false;
 }
 
 bool text_iterator_byte_prev(Iterator *it, char *b) {

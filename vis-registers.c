@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "vis-core.h"
 
@@ -210,6 +211,20 @@ enum VisRegister vis_register_from(Vis *vis, char reg) {
 			return i;
 	}
 	return VIS_REG_INVALID;
+}
+
+char *vis_register_name(Vis *vis, enum VisRegister reg) {
+	char name = '\0';
+	if (reg < LENGTH(vis_registers))
+		name = vis_registers[reg].name;
+	else if (VIS_REG_a <= reg && reg <= VIS_REG_z)
+		name = 'a' + reg - VIS_REG_a;
+	else if (VIS_REG_A <= reg && reg <= VIS_REG_Z)
+		name = 'A' + reg - VIS_REG_A;
+	char *strname = malloc(2);
+	if (sprintf(strname, "%c", name) > 0)
+		return strname;
+	return NULL;
 }
 
 void vis_register(Vis *vis, enum VisRegister reg) {

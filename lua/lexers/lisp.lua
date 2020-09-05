@@ -18,9 +18,15 @@ local comment = token(l.COMMENT, line_comment + block_comment)
 local word = l.alpha * (l.alnum + '_' + '-')^0
 
 -- Strings.
+local character
+  = P'#\\' * ( P'alarm' + P'backspace' + P'delete' + P'escape'
+             + P'newline' + P'null' + P'return' + P'space' + P'tab')
+  + P'#\\x' * l.xdigit^1
+  + P'#\\' * P(1)
+  + P'?\\' * P(1)
 local literal = "'" * word
 local dq_str = l.delimited_range('"')
-local string = token(l.STRING, literal + dq_str)
+local string = token(l.STRING, character + literal + dq_str)
 
 -- Numbers.
 local number = token(l.NUMBER, P('-')^-1 * l.digit^1 * (S('./') * l.digit^1)^-1)

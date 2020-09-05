@@ -102,6 +102,7 @@ typedef struct {
 		TEXTOBJECT_NON_CONTIGUOUS  = 1 << 2, /* multiple applications yield a split range */
 		TEXTOBJECT_EXTEND_FORWARD  = 1 << 3, /* multiple applications extend towards the end of file (default) */
 		TEXTOBJECT_EXTEND_BACKWARD = 1 << 4, /* multiple applications extend towards the begin of file */
+		TEXTOBJECT_LINEWISE        = 1 << 5,
 	} type;
 	void *data;
 } TextObject;
@@ -182,11 +183,14 @@ struct Vis {
 	Mode *mode_before_prompt;            /* user mode which was active before entering prompt */
 	char search_char[8];                 /* last used character to search for via 'f', 'F', 't', 'T' */
 	int last_totill;                     /* last to/till movement used for ';' and ',' */
+	Regex *last_search;                  /* last regex used in '/' or '?' */
 	int search_direction;                /* used for `n` and `N` */
 	int tabwidth;                        /* how many spaces should be used to display a tab */
 	bool expandtab;                      /* whether typed tabs should be converted to spaces */
 	bool autoindent;                     /* whether indentation should be copied from previous line on newline */
 	bool change_colors;                  /* whether to adjust 256 color palette for true colors */
+	bool smartcase;                      /* case-insensitive search, unless the pattern contains upper case characters */
+	bool literal;                        /* literal string search */
 	char *shell;                         /* shell used to launch external commands */
 	Map *cmds;                           /* ":"-commands, used for unique prefix queries */
 	Map *usercmds;                       /* user registered ":"-commands */
@@ -197,7 +201,6 @@ struct Vis {
 	char key_current[VIS_KEY_LENGTH_MAX];/* current key being processed by the input queue */
 	char key_prev[VIS_KEY_LENGTH_MAX];   /* previous key which was processed by the input queue */
 	Buffer input_queue;                  /* holds pending input keys */
-	bool errorhandler;                   /* whether we are currently in an error handler, used to avoid recursion */
 	Action action;                       /* current action which is in progress */
 	Action action_prev;                  /* last operator action used by the repeat (dot) command */
 	Mode *mode;                          /* currently active mode, used to search for keybindings */
